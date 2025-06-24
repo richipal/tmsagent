@@ -1,0 +1,41 @@
+
+> chatbot-frontend@0.0.0 dev
+> vite
+
+
+  VITE v5.4.19  ready in 139 ms
+
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: http://192.168.4.22:5174/
+9:43:08 PM [vite] hmr update /src/components/chat/message-bubble.tsx, /src/styles/globals.css
+9:44:22 PM [vite] hmr update /src/components/chat/chat-input.tsx, /src/styles/globals.css
+9:44:30 PM [vite] hmr update /src/components/chat/chat-input.tsx, /src/styles/globals.css
+8:58:15 PM [vite] changed tsconfig file detected: /Users/richipalbindra/Documents/myhome/workspace/llm/google/adk/tmsagent/chatbot-project/frontend/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+8:58:15 PM [vite] vite.config.ts changed, restarting server...
+8:58:15 PM [vite] .env.local changed, restarting server...
+8:58:15 PM [vite] page reload index.html
+8:58:15 PM [vite] hmr update /src/App.tsx, /src/styles/globals.css
+8:58:15 PM [vite] hmr update /src/components/chat/chat-input.tsx, /src/styles/globals.css
+8:58:15 PM [vite] hmr update /src/components/chat/chat-window.tsx, /src/styles/globals.css
+8:58:15 PM [vite] hmr update /src/components/chat/message-bubble.tsx, /src/styles/globals.css
+8:58:15 PM [vite] hmr update /src/components/sidebar/sidebar.tsx, /src/styles/globals.css
+8:58:15 PM [vite] hmr update /src/components/ui/button.tsx, /src/styles/globals.css
+8:58:15 PM [vite] page reload src/components/ui/input.tsx
+8:58:15 PM [vite] hmr update /src/components/ui/switch.tsx, /src/styles/globals.css
+8:58:15 PM [vite] hmr update /src/components/ui/textarea.tsx, /src/styles/globals.css
+8:58:15 PM [vite] page reload src/lib/utils.ts
+8:58:15 PM [vite] page reload src/main.tsx
+8:58:15 PM [vite] page reload src/services/api.ts
+8:58:15 PM [vite] page reload src/services/websocket.ts
+8:58:15 PM [vite] page reload src/stores/chat-store.ts
+8:58:15 PM [vite] hmr update /src/styles/globals.css
+8:58:15 PM [vite] page reload src/types/chat.ts
+8:58:15 PM [vite] page reload tailwind.config.js
+(!) Could not auto-determine entry point from rollupOptions or html files and there are no explicit optimizeDeps.include patterns. Skipping dependency pre-bundling.
+8:58:15 PM [vite] server restarted.
+
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: use --host to expose
+
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: use --host to expose

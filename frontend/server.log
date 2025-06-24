@@ -1,0 +1,5 @@
+127.0.0.1 - - [23/Jun/2025 21:00:30] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [23/Jun/2025 21:00:30] "GET /assets/index-kzEi1qYH.js HTTP/1.1" 200 -
+127.0.0.1 - - [23/Jun/2025 21:00:30] "GET /assets/index-DT-ogItv.css HTTP/1.1" 304 -
+127.0.0.1 - - [23/Jun/2025 21:00:33] code 404, message File not found
+127.0.0.1 - - [23/Jun/2025 21:00:33] "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 -
