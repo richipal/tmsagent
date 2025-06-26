@@ -20,8 +20,8 @@ aiofiles = "^23.2.1"
 pandas = "^2.1.4"
 numpy = "^1.26.2"
 matplotlib = "^3.8.2"
-seaborn = "^0.13.0"
-scikit-learn = "^1.3.2"
+# seaborn = "^0.13.0"  # Disabled due to scipy dependency
+# scikit-learn = "^1.3.2"  # Disabled due to scipy dependency issues
 plotly = "^5.17.0"
 jupyter = "^1.0.0"
 ipykernel = "^6.27.1"
@@ -47,7 +47,7 @@ coverage = "^7.3.2"
 
 [tool.poetry.scripts]
 deploy = "deployment.deploy:main"
-chat-server = "uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+chat-server = "backend.main:serve"
 
 [build-system]
 requires = ["poetry-core"]

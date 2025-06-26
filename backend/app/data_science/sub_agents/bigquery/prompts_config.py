@@ -282,7 +282,7 @@ TABLE_DOCUMENTATION = {
 SQL_EXAMPLES = [
     {
         "question": "List all the 21st century activity codes",
-        "sql": "SELECT a.code, a.description FROM activity a WHERE a.description LIKE '%21st century%'",
+        "sql": "SELECT code, description FROM activity  WHERE LOWER(description) LIKE '%21st century%'",
         "explanation": "Lists all activity codes and their descriptions that match 21st century"
     },
     
@@ -357,40 +357,90 @@ SQL_EXAMPLES = [
     
     {
         "question": "How many hours did Rosalinda Rodriguez work in total throughout years?",
-        "sql": """SELECT 
-    SUM(
-        CASE 
-            WHEN DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) = 0 
-                THEN te.unit 
-            ELSE ROUND(DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE)/60, 2) 
-        END
-    ) AS total_hours
-    FROM employee e
-    JOIN time_entry te ON te.employee_id = e.id
-    WHERE LOWER(e.first_name) LIKE LOWER('%Rosalinda%') 
-    AND LOWER(e.last_name) LIKE LOWER('%Rodriguez%')
-    AND te.status_id = 4""",
+        "sql": """
+        SELECT
+  SUM(
+    CASE
+      WHEN DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) = 0
+        THEN CAST(te.unit AS FLOAT64)
+      ELSE
+        ROUND(DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) / 60.0, 2)
+    END
+  ) AS total_hours
+FROM `adk-rag-462901.data_science_agents.time_entry` AS te
+JOIN  `adk-rag-462901.data_science_agents.employee` AS e
+ON te.employee_id = e.id
+WHERE
+  LOWER(e.first_name) LIKE '%rosalinda%'
+  AND LOWER(e.last_name) LIKE '%rodriguez%'
+  AND te.status_id = 4;  
+
+        """,
         "explanation": "Gets the total number of hours for an employee over all years using BigQuery DATETIME_DIFF function"
     },
     
     {
         "question": "Show me the top 5 employees by hours worked",
-        "sql": """SELECT e.first_name, e.last_name,
-    SUM(
-        CASE 
-            WHEN DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) = 0 
-                THEN te.unit 
-            ELSE ROUND(DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE)/60, 2) 
-        END
-    ) AS total_hours
-    FROM employee e
-    JOIN time_entry te ON te.employee_id = e.id
-    WHERE te.status_id = 4 
-    GROUP BY e.id, e.first_name, e.last_name 
-    ORDER BY total_hours DESC 
-    LIMIT 5""",
+        "sql": """SELECT 
+  e.first_name, 
+  e.last_name,
+  SUM(
+    CASE 
+      WHEN DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) = 0 
+        THEN CAST(te.unit AS FLOAT64)
+      ELSE ROUND(DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE)/60.0, 2) 
+    END
+  ) AS total_hours
+FROM 
+  `adk-rag-462901.data_science_agents.employee` e
+JOIN 
+  `adk-rag-462901.data_science_agents.time_entry` te 
+ON 
+  te.employee_id = e.id
+WHERE 
+  te.status_id = 4 
+GROUP BY 
+  e.id, e.first_name, e.last_name 
+ORDER BY 
+  total_hours DESC 
+LIMIT 5;
+""",
         "explanation": "Shows top 5 employees by total posted hours worked using BigQuery time functions"
+    },
+
+     {
+        "question": "Show me employees who worked overtime last month",
+        "sql": """SELECT DISTINCT e.first_name, e.last_name, l.name AS location
+FROM `adk-rag-462901.data_science_agents.employee` AS e
+JOIN `adk-rag-462901.data_science_agents.time_entry` AS te ON e.id = te.employee_id
+JOIN `adk-rag-462901.data_science_agents.activity` AS a ON te.activity_id = a.id
+JOIN `adk-rag-462901.data_science_agents.location` AS l ON e.location_id = l.id
+WHERE a.type = 'OVERTIME'
+  AND DATE(te.begin_date_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+  AND te.status_id = 4
+ORDER BY e.last_name, e.first_name
+LIMIT 80
+""",
+        "explanation": "Shows employees who worked overtime last month, this is identified by checking type column in table activity"
+    },
+
+     {
+        "question": "Show me employees who worked activity code DBOUTM last month at location 075",
+        "sql": """SELECT DISTINCT e.first_name, e.last_name, l.name AS location
+FROM `adk-rag-462901.data_science_agents.employee` AS e
+JOIN `adk-rag-462901.data_science_agents.time_entry` AS te ON e.id = te.employee_id
+JOIN `adk-rag-462901.data_science_agents.activity` AS a ON te.activity_id = a.id
+JOIN `adk-rag-462901.data_science_agents.location` AS l ON e.location_id = l.id
+WHERE a.code = 'DBOUTM'
+  AND DATE(te.begin_date_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+  AND l.code= '075'
+  AND te.status_id = 4 
+ORDER BY e.last_name, e.first_name
+LIMIT 80
+""",
+        "explanation": "Shows employees who worked activity code DBOUTM last month at location 075, uses code column in table activity"
     }
+
 ]
 
 

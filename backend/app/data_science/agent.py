@@ -100,6 +100,7 @@ class DataScienceRootAgent:
             # Classify the intent and determine agent routing
             intent = await self._classify_intent(message, tool_context)
             print(f"🎯 Intent classified: {intent}")
+            print(f"   Primary: {intent.get('primary_agent')}, Secondary: {intent.get('secondary_agents')}")
             
             # Route to appropriate agent(s) based on intent
             response = await self._route_to_agents(message, intent, tool_context)
@@ -121,35 +122,21 @@ Analyze the following user query and classify it for agent routing:
 
 Query: {message}
 
-Determine the primary agent and any secondary agents needed:
+CRITICAL: Analyze what the user is asking for:
+1. If they want ACTUAL DATA (numbers, counts, patterns, trends from the database) → use "database"
+2. If they want CODE EXAMPLES or HOW TO analyze data → use "analytics"
+3. If they want BOTH data AND visualization → use "database" first, then "analytics"
 
 AGENT CAPABILITIES:
-1. **database** - Direct data queries with SQL: counts, sums, averages, maximums, minimums, customer lookups, sales by categories/regions, comparisons between groups
-2. **analytics** - Statistical analysis and visualization: correlations, distributions, statistical tests, trends, charts, graphs, plots
-3. **ml** - Machine learning tasks: predictions, model training, BQML operations
+- **database**: Executes SQL queries on BigQuery and returns ACTUAL DATA RESULTS
+- **analytics**: Generates Python CODE EXAMPLES for data analysis (does NOT return actual data)
+- **ml**: Machine learning model operations
 
-ROUTING RULES:
-- For simple data queries that can be answered with SQL → primary_agent: "database", secondary_agents: []
-- For statistical analysis that needs actual data → primary_agent: "database", secondary_agents: ["analytics"]
-- For visualization that needs actual data → primary_agent: "database", secondary_agents: ["analytics"]  
-- For pure ML tasks → primary_agent: "ml", secondary_agents: []
-
-EXAMPLES:
-- "How many premium vs standard customers" → primary_agent: "database", secondary_agents: []
-- "Average transaction amount" → primary_agent: "database", secondary_agents: []
-- "Which sales rep has highest revenue" → primary_agent: "database", secondary_agents: []
-- "Total sales by region" → primary_agent: "database", secondary_agents: []
-- "How many customers show in bar chart" → primary_agent: "database", secondary_agents: ["analytics"]
-- "Draw a chart of sales by region" → primary_agent: "database", secondary_agents: ["analytics"]
-- "Statistical summary of sales data" → primary_agent: "database", secondary_agents: ["analytics"]
-- "Show summary statistics" → primary_agent: "database", secondary_agents: ["analytics"]
-- "Correlation between price and sales" → primary_agent: "database", secondary_agents: ["analytics"]
-- "Predict future sales" → primary_agent: "ml", secondary_agents: []
-
-CRITICAL ROUTING RULE:
-- Statistical analysis of actual data ALWAYS requires: primary_agent: "database", secondary_agents: ["analytics"]
-- Visualization of actual data ALWAYS requires: primary_agent: "database", secondary_agents: ["analytics"]
-- Database gets the data first, then analytics performs the analysis/visualization
+ROUTING DECISION:
+Ask yourself: "Does the user want to SEE actual data or do they want to LEARN how to analyze data?"
+- "Show me absence patterns" → They want to SEE data → primary_agent: "database"
+- "How do I analyze absence patterns" → They want CODE → primary_agent: "analytics"
+- "Show me a chart of absence patterns" → They want DATA + VIZ → primary_agent: "database", secondary_agents: ["analytics"]
 
 Consider the schema context:
 {tool_context.get_state('schema', 'No schema available')}

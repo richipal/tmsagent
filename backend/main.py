@@ -5,6 +5,7 @@ from app.api.upload import router as upload_router
 from app.api.websocket import router as websocket_router
 from app.api.charts import router as charts_router
 from app.api.table_info import router as table_info_router
+from app.api.suggested_questions import router as suggested_questions_router
 
 app = FastAPI(
     title="ADK Data Science Chatbot API",
@@ -25,6 +26,7 @@ app.include_router(upload_router, prefix="/api")
 app.include_router(websocket_router)
 app.include_router(charts_router, prefix="/api")
 app.include_router(table_info_router, prefix="/api")
+app.include_router(suggested_questions_router, prefix="/api")
 
 @app.get("/")
 async def root():
@@ -34,7 +36,8 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-if __name__ == "__main__":
+def serve():
+    """Entry point for poetry script"""
     import uvicorn
     import os
     from dotenv import load_dotenv
@@ -44,4 +47,7 @@ if __name__ == "__main__":
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))
     
-    uvicorn.run("main:app", host=host, port=port, reload=True)
+    uvicorn.run("backend.main:app", host=host, port=port, reload=True)
+
+if __name__ == "__main__":
+    serve()

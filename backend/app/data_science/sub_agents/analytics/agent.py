@@ -71,20 +71,33 @@ class AnalyticsAgent:
                     db_agent_data = query_result  # Use structured data
                     print(f"Analytics Agent using structured query_result: {query_result.get('rows', [])[:2]}...")  # Debug
             
+            # Check if database agent returned an error/don't know response
+            if db_agent_data and isinstance(db_agent_data, str) and "I don't know" in db_agent_data:
+                return db_agent_data  # Pass through the "I don't know" response
+            
             # Check if this is a visualization request
             is_visualization = any(word in query.lower() for word in ['chart', 'graph', 'plot', 'visuali', 'bar', 'line', 'pie', 'histogram'])
             print(f"Analytics Agent: is_visualization={is_visualization}, has_db_data={bool(db_agent_data)}")  # Debug
             
             # Create enhanced prompt with context
             if is_visualization and db_agent_data:
+                # Check if data contains error messages or is empty
+                if isinstance(db_agent_data, str) and ("error" in db_agent_data.lower() or "failed" in db_agent_data.lower()):
+                    return "I don't know how to create that chart. The data query failed."
+                
                 # Extract data for visualization
                 if isinstance(db_agent_data, dict) and db_agent_data.get("rows"):
                     # Structured data from query_result
                     rows = db_agent_data.get("rows", [])
+                    if not rows:
+                        return "I don't know how to create that chart. No data was returned from the query."
                     data_summary = f"Query returned {len(rows)} rows: {rows[:3]}..." if len(rows) > 3 else f"Query returned {len(rows)} rows: {rows}"
                 else:
                     # Text data from db_agent_output
                     data_summary = str(db_agent_data)
+                    # Check if the text data looks like an error
+                    if not data_summary or "no results" in data_summary.lower() or len(data_summary.strip()) < 10:
+                        return "I don't know how to create that chart. Insufficient data was provided."
                 
                 # Generate and execute visualization code for ANY data structure
                 print(f"Generating dynamic visualization for: {query}")
@@ -93,6 +106,10 @@ class AnalyticsAgent:
                 chart_result = await self._generate_and_execute_chart(query, db_agent_data, data_summary)
                 return chart_result
             else:
+                # If analytics agent was called without database data for a chart request, return "I don't know"
+                if is_visualization and not db_agent_data:
+                    return "I don't know how to create that chart. No data was provided by the database."
+                
                 # Check if this is a statistical analysis request with actual data
                 is_statistical_analysis = any(word in query.lower() for word in ['statistical', 'statistics', 'summary', 'correlation', 'distribution', 'analysis', 'outlier', 'outliers', 'anomal', 'detect'])
                 

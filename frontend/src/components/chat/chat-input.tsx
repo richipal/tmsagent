@@ -5,7 +5,11 @@ import { Send, Paperclip, Loader2 } from 'lucide-react';
 import { useChatStore } from '@/stores/chat-store';
 import { cn } from '@/lib/utils';
 
-const ChatInput: React.FC = () => {
+interface ChatInputProps {
+  suggestedQuestion?: string;
+}
+
+const ChatInput: React.FC<ChatInputProps> = ({ suggestedQuestion }) => {
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -73,6 +77,24 @@ const ChatInput: React.FC = () => {
       textareaRef.current.focus();
     }
   }, []);
+
+  // Update message when suggested question changes
+  useEffect(() => {
+    if (suggestedQuestion) {
+      setMessage(suggestedQuestion);
+      // Focus textarea after setting the message
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          // Move cursor to end of text
+          textareaRef.current.setSelectionRange(
+            suggestedQuestion.length,
+            suggestedQuestion.length
+          );
+        }
+      }, 50);
+    }
+  }, [suggestedQuestion]);
 
   // Auto-resize textarea
   useEffect(() => {

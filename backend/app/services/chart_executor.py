@@ -66,12 +66,25 @@ class ChartExecutor:
             logger.info(f"Executing chart code: {clean_code[:100]}...")
             
             # Execute the Python code in a controlled environment
+            import pandas as pd
+            try:
+                import seaborn as sns
+            except ImportError:
+                sns = None
+                
             exec_globals = {
                 'matplotlib': matplotlib,
                 'plt': plt,
                 'np': np,
-                'numpy': np
+                'numpy': np,
+                'pd': pd,
+                'pandas': pd,
+                '__builtins__': __builtins__
             }
+            
+            if sns:
+                exec_globals['sns'] = sns
+                exec_globals['seaborn'] = sns
             
             exec(clean_code, exec_globals)
             

@@ -16,8 +16,8 @@ if ! command_exists node; then
     exit 1
 fi
 
-if ! command_exists python3; then
-    echo "❌ Python 3 is not installed. Please install Python 3.9+ and try again."
+if ! command_exists poetry; then
+    echo "❌ Poetry is not installed. Please install Poetry and try again."
     exit 1
 fi
 
@@ -26,18 +26,9 @@ echo "✅ Prerequisites check passed"
 # Setup backend
 echo ""
 echo "Setting up backend..."
-cd backend
 
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
-fi
-
-echo "Activating virtual environment..."
-source venv/bin/activate
-
-echo "Installing Python dependencies..."
-pip install -r requirements.txt
+echo "Installing Python dependencies with Poetry..."
+poetry install
 
 # Setup ADK agent (optional)
 if [ "$1" = "--setup-adk" ]; then
@@ -46,9 +37,11 @@ if [ "$1" = "--setup-adk" ]; then
 fi
 
 # Copy environment file if it doesn't exist
-if [ ! -f ".env" ]; then
+if [ ! -f "backend/.env" ]; then
     echo "Creating .env file from template..."
-    cp .env.example .env
+    if [ -f "backend/.env.example" ]; then
+        cp backend/.env.example backend/.env
+    fi
 fi
 
 echo "✅ Backend setup completed"
@@ -56,7 +49,7 @@ echo "✅ Backend setup completed"
 # Setup frontend
 echo ""
 echo "Setting up frontend..."
-cd ../frontend
+cd frontend
 
 if [ ! -d "node_modules" ]; then
     echo "Installing Node.js dependencies..."
@@ -79,23 +72,23 @@ echo "🌐 Frontend will start on http://localhost:5174"
 echo ""
 
 # Start backend in background
-cd ../backend
-source venv/bin/activate
-python main.py &
+cd backend
+poetry run uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
+cd ..
 
 # Wait a moment for backend to start
 sleep 3
 
 # Build frontend (only once if not built)
-cd ../frontend
+cd frontend
 if [ ! -d "dist" ]; then
     echo "Building frontend..."
     npm run build
 fi
 
-# Start frontend using Python server
-python3 serve.py &
+# Start frontend using npm dev server
+npm run dev &
 FRONTEND_PID=$!
 
 echo ""

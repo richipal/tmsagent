@@ -2,13 +2,14 @@
 
 echo "🛑 Stopping ADK Data Science Chatbot services..."
 
-# Stop Python processes (backend)
-pkill -f "python main.py" 2>/dev/null && echo "✅ Backend stopped"
+# Stop backend (poetry chat-server)
+pkill -f "chat-server" 2>/dev/null && echo "✅ Backend stopped"
 
-# Stop Python server (frontend)
-pkill -f "serve.py" 2>/dev/null && echo "✅ Frontend stopped"
+# Stop frontend (npm dev server)
+pkill -f "vite" 2>/dev/null && echo "✅ Frontend stopped"
 
-# Stop any remaining Python servers on port 5174
+# Stop any remaining processes on ports 8000 and 5174
+lsof -ti:8000 | xargs kill -9 2>/dev/null
 lsof -ti:5174 | xargs kill -9 2>/dev/null
 
 echo "🏁 All services stopped"

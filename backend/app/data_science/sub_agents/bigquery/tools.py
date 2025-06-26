@@ -251,6 +251,14 @@ async def initial_bq_nl2sql(question: str, callback_context: Any = None) -> Dict
             if sql_query.upper().startswith('SELECT') and 'LIMIT' not in sql_query.upper():
                 sql_query += " LIMIT 80"
             
+            # Log the generated SQL for validation
+            logger.info(f"\n{'='*60}")
+            logger.info(f"NL2SQL Generated Query:")
+            logger.info(f"User Question: {question}")
+            logger.info(f"Generated SQL:\n{sql_query}")
+            logger.info(f"{'='*60}\n")
+            print(f"\n🔍 NL2SQL Generated SQL:\n{sql_query}\n")
+            
             return {
                 "sql_query": sql_query,
                 "method": "baseline"
@@ -282,17 +290,37 @@ async def run_bigquery_validation(sql_query: str, callback_context: Any = None) 
             if keyword in sql_upper:
                 return {"error": f"Destructive operation '{keyword}' not allowed"}
         
+        # Log the SQL being validated and executed
+        logger.info(f"\n{'='*60}")
+        logger.info(f"BigQuery Validation & Execution:")
+        logger.info(f"SQL Query:\n{sql_query}")
+        logger.info(f"{'='*60}\n")
+        print(f"\n📊 BigQuery Executing SQL:\n{sql_query}\n")
+        
         # First, validate with dry run
         validation_result = bq_manager.execute_query(sql_query, dry_run=True)
         
         if "error" in validation_result:
+            logger.error(f"Query validation failed: {validation_result['error']}")
+            print(f"❌ Query validation failed: {validation_result['error']}")
             return {"error": f"Query validation failed: {validation_result['error']}"}
         
         # If validation passes, execute the query
+        print(f"✅ Query validation passed, executing...")
         execution_result = bq_manager.execute_query(sql_query, dry_run=False)
         
         if "error" in execution_result:
+            logger.error(f"Query execution failed: {execution_result['error']}")
+            print(f"❌ Query execution failed: {execution_result['error']}")
             return {"error": f"Query execution failed: {execution_result['error']}"}
+        
+        # Log successful execution
+        rows = execution_result.get("data", []) or execution_result.get("rows", [])
+        print(f"✅ Query executed successfully!")
+        print(f"   Returned {len(rows)} rows")
+        if rows:
+            print(f"   First row: {rows[0]}")
+        logger.info(f"Query executed successfully. Returned {len(rows)} rows.")
         
         return execution_result
         

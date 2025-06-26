@@ -34,7 +34,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
     // First, replace images with placeholders and collect image data
     const images: { placeholder: string; alt: string; src: string }[] = [];
-    processedContent = processedContent.replace(imageRegex, (match, alt, src) => {
+    processedContent = processedContent.replace(imageRegex, (_, alt, src) => {
       const placeholder = `__IMAGE_PLACEHOLDER_${images.length}__`;
       // Convert relative URLs to absolute
       const absoluteSrc = src.startsWith('/') ? `http://localhost:8000${src}` : src;

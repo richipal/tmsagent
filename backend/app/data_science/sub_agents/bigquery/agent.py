@@ -77,17 +77,26 @@ class DatabaseAgent:
             sql_result = await self.tools["nl2sql"](query, callback_context)
             
             if "error" in sql_result:
-                return f"Error generating SQL: {sql_result['error']}"
+                return f"I don't know the answer to that question. Could not generate SQL: {sql_result['error']}"
             
             sql_query = sql_result.get("sql_query", "")
             if not sql_query:
-                return "Could not generate SQL query from your question."
+                return "I don't know the answer to that question. Could not generate a SQL query from your question."
+            
+            # Log the SQL query at agent level for easy tracking
+            print(f"\n{'='*80}")
+            print(f"🗄️ DATABASE AGENT PROCESSING")
+            print(f"User Query: {query}")
+            print(f"Generated SQL: {sql_query}")
+            print(f"{'='*80}\n")
             
             # Step 2: Validate and execute the SQL
             validation_result = await self.tools["validation"](sql_query, callback_context)
             
             if "error" in validation_result:
-                return f"Query execution error: {validation_result['error']}"
+                # Return clear "I don't know" response for validation failures
+                error_msg = validation_result['error']
+                return f"I don't know the answer to that question. The database query failed: {error_msg}"
             
             # Store structured data for other agents (following official ADK pattern)
             if callback_context:
@@ -171,12 +180,9 @@ class DatabaseAgent:
             # Format based on the type of comparison
             if any(phrase in original_query_lower for phrase in ["compare", "between", "categories", "category"]):
                 return f"The total sales for each product category are: {', and '.join(result_parts)}."
-            elif "region" in original_query_lower:
-                return f"The total sales by region are: {', '.join(result_parts)}"
-            elif "rep" in original_query_lower or "sales rep" in original_query_lower:
-                return f"Sales by rep: {', '.join(result_parts)}"
             else:
-                return f"Results: {', '.join(result_parts)}"
+                # Generic formatting for group by results
+                return "\n".join(result_parts)
         
         # Handle single row with two columns
         elif len(rows) == 1 and len(rows[0]) == 2:

@@ -159,8 +159,13 @@ export const useChatStore = create<ChatStore>()(
               addMessage({ content: response.message, role: 'assistant' });
             } catch (error) {
               console.error('Failed to send message:', error);
+              console.error('Error details:', {
+                name: error instanceof Error ? error.name : 'Unknown',
+                message: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+              });
               addMessage({ 
-                content: 'Sorry, I encountered an error. Please try again.', 
+                content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : String(error)}. Please try again.`, 
                 role: 'assistant' 
               });
             } finally {
