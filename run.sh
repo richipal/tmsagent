@@ -13,7 +13,7 @@ lsof -ti:5174 | xargs kill -9 2>/dev/null
 # Start backend
 echo "Starting backend on port 8000..."
 cd backend
-nohup poetry run uvicorn main:app --host 0.0.0.0 --port 8000 --reload > backend.log 2>&1 &
+nohup python simple_main.py > backend.log 2>&1 &
 cd ..
 
 # Wait for backend to start

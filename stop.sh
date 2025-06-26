@@ -2,8 +2,8 @@
 
 echo "🛑 Stopping ADK Data Science Chatbot services..."
 
-# Stop backend (poetry chat-server)
-pkill -f "chat-server" 2>/dev/null && echo "✅ Backend stopped"
+# Stop backend (simple_main.py)
+pkill -f "simple_main" 2>/dev/null && echo "✅ Backend stopped"
 
 # Stop frontend (npm dev server)
 pkill -f "vite" 2>/dev/null && echo "✅ Frontend stopped"

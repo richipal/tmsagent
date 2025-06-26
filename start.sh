@@ -73,7 +73,7 @@ echo ""
 
 # Start backend in background
 cd backend
-poetry run uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+python simple_main.py &
 BACKEND_PID=$!
 cd ..
 

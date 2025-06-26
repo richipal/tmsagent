@@ -1,55 +1,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ChatStore, ChatSession, Message } from '../types/chat';
-// import { WebSocketService } from '../services/websocket';
 import { ApiService } from '../services/api';
-
-// const WS_URL = 'ws://localhost:8000/ws/chat';
 
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => {
-      // let wsService: WebSocketService | null = null;
       const apiService = ApiService.getInstance();
-
-      // WebSocket initialization - comment out for now to ensure app works
-      // setTimeout(() => {
-      //   wsService = new WebSocketService(WS_URL);
-      //   wsService.connect().then(() => {
-      //     console.log('WebSocket connected successfully');
-      //   set({ isConnected: true });
-      //   
-      //   wsService.onMessage((data) => {
-      //     const { sessions, currentSessionId } = get();
-      //     
-      //     if (data.type === 'message') {
-      //       const currentSession = sessions.find(s => s.id === currentSessionId);
-      //       if (currentSession) {
-      //         const updatedSessions = sessions.map(session => 
-      //           session.id === currentSessionId
-      //             ? {
-      //                 ...session,
-      //                 messages: [...session.messages, {
-      //                   id: crypto.randomUUID(),
-      //                   content: data.content,
-      //                   role: 'assistant' as const,
-      //                   timestamp: new Date(),
-      //                 }],
-      //                 updatedAt: new Date(),
-      //               }
-      //             : session
-      //         );
-      //         set({ sessions: updatedSessions, isTyping: false });
-      //       }
-      //     } else if (data.type === 'typing') {
-      //       set({ isTyping: data.isTyping });
-      //     }
-      //   });
-      // }).catch((error) => {
-      //   console.warn('WebSocket connection failed, using HTTP API fallback:', error);
-      //   set({ isConnected: false });
-      // });
-      // }, 1000); // Delay by 1 second
 
       return {
         sessions: [],
@@ -142,36 +99,27 @@ export const useChatStore = create<ChatStore>()(
           // Add user message immediately
           addMessage({ content, role: 'user' });
 
-          // Use API for now (WebSocket disabled temporarily)
-          // if (wsService && wsService.isConnected) {
-          //   wsService.send({
-          //     type: 'message',
-          //     content,
-          //     session_id: currentSessionId,
-          //   });
-          // } else {
-            try {
-              console.log('Sending message via API:', content);
-              console.log('Session ID:', currentSessionId);
-              set({ isTyping: true });
-              const response = await apiService.sendMessage(content, currentSessionId || undefined);
-              console.log('API Response:', response);
-              addMessage({ content: response.message, role: 'assistant' });
-            } catch (error) {
-              console.error('Failed to send message:', error);
-              console.error('Error details:', {
-                name: error instanceof Error ? error.name : 'Unknown',
-                message: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-              });
-              addMessage({ 
-                content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : String(error)}. Please try again.`, 
-                role: 'assistant' 
-              });
-            } finally {
-              set({ isTyping: false });
-            }
-          // }
+          try {
+            console.log('Sending message via API:', content);
+            console.log('Session ID:', currentSessionId);
+            set({ isTyping: true });
+            const response = await apiService.sendMessage(content, currentSessionId || undefined);
+            console.log('API Response:', response);
+            addMessage({ content: response.message, role: 'assistant' });
+          } catch (error) {
+            console.error('Failed to send message:', error);
+            console.error('Error details:', {
+              name: error instanceof Error ? error.name : 'Unknown',
+              message: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined
+            });
+            addMessage({ 
+              content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : String(error)}. Please try again.`, 
+              role: 'assistant' 
+            });
+          } finally {
+            set({ isTyping: false });
+          }
         },
       };
     },
