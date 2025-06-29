@@ -2,6 +2,28 @@
 
 A production-ready chatbot application built with Google's ADK (Agent Development Kit) data science multi-agent system. Features a modern React frontend and FastAPI backend with comprehensive testing, deployment, and evaluation capabilities following Google ADK best practices.
 
+## 🚨 CURRENT STATUS
+
+**⚠️ This system currently runs on a simplified backend due to dependency compatibility issues.**
+
+**For the current working version, see [README_CURRENT.md](README_CURRENT.md)**
+
+### Issues:
+- numpy/scipy architecture incompatibility on Apple Silicon (M1/M2 Macs)
+- Google GenerativeAI version compatibility 
+- Using `simple_main.py` backend instead of full multi-agent system
+
+### Quick Start (Current Working Version):
+```bash
+cd backend && python simple_main.py &  # Start backend
+cd frontend && npm run dev              # Start frontend
+# Access: http://localhost:5174
+```
+
+---
+
+**The documentation below describes the target architecture when dependency issues are resolved.**
+
 ## 🤖 Multi-Agent Architecture
 
 This application implements a sophisticated multi-agent system for data science tasks:
@@ -211,51 +233,117 @@ docker run -p 3000:3000 chatbot-frontend
 
 ## 🧪 Testing & Quality Assurance
 
-### Running Tests
+### Comprehensive Test Suite
+
+The system includes a complete test suite with over 100 tests covering all components:
 
 ```bash
 # Run all tests
 poetry run pytest
 
-# Run unit tests only
-poetry run pytest tests/ -v
-
-# Run integration tests
-poetry run pytest tests/ -v -m integration
-
-# Run evaluation tests for agent capabilities
-poetry run pytest eval/ -v -m evaluation
-
-# Run tests with coverage
+# Run tests with coverage report
 poetry run pytest --cov=app --cov-report=html
+
+# Run specific test categories
+poetry run pytest -m unit           # Unit tests only
+poetry run pytest -m integration    # Integration tests only
+poetry run pytest -m evaluation     # Agent evaluation tests
+
+# Run tests by component
+poetry run pytest tests/test_database_models.py     # Database tests
+poetry run pytest tests/test_session_manager.py     # Session management
+poetry run pytest tests/test_api_endpoints.py       # API endpoint tests
+poetry run pytest tests/test_agent_routing.py       # Agent routing tests
+poetry run pytest tests/test_integration.py         # End-to-end tests
+
+# Run with verbose output
+poetry run pytest -v -s
+
+# Skip slow tests for faster development
+poetry run pytest -m "not slow"
 ```
+
+### Test Runner Script
+
+Use the custom test runner for advanced options:
+
+```bash
+# Make script executable (first time)
+chmod +x backend/run_tests.py
+
+# Run with coverage and verbose output
+python backend/run_tests.py --coverage --verbose
+
+# Run only unit tests
+python backend/run_tests.py --unit
+
+# Run specific test file
+python backend/run_tests.py --file tests/test_api_endpoints.py
+
+# Run specific test function
+python backend/run_tests.py --function test_send_message_new_session
+
+# Skip slow tests for faster feedback
+python backend/run_tests.py --fast
+```
+
+### Test Coverage
+
+The test suite covers:
+
+- **Database Operations**: SQLite persistence, session management, memory storage
+- **API Endpoints**: Chat, file upload, charts, database stats
+- **Agent System**: Routing, context handling, multi-agent coordination
+- **Integration Flows**: End-to-end conversation flows, context preservation
+- **Error Handling**: Graceful failure, recovery scenarios
+- **Performance**: Concurrent sessions, large datasets
+- **Security**: SQL injection prevention, path traversal protection
 
 ### Code Quality
 
 ```bash
-# Format code
+# Format code (run before committing)
 poetry run black backend/
 poetry run isort backend/
 
-# Lint code
-poetry run flake8 backend/
-
 # Type checking
 poetry run mypy backend/app/
+
+# Code quality checks - run these before committing
+poetry run black backend/                        # Format code
+poetry run isort backend/                        # Sort imports
+poetry run mypy backend/app/                     # Type checking
 ```
 
-### Agent Deployment Testing
+### Test Framework Features
 
-```bash
-# Test deployment scripts
-poetry run pytest deployment/test_deployment.py -v
+The comprehensive test suite includes:
 
-# Test agent deployment status
-poetry run python deployment/deploy.py --action status
+#### Test Structure
+- **Unit Tests**: Individual component testing with mocking
+- **Integration Tests**: End-to-end workflow testing
+- **API Tests**: HTTP endpoint validation and error handling
+- **Database Tests**: SQLite persistence and data integrity
+- **Agent Tests**: Multi-agent routing and context preservation
+- **Performance Tests**: Concurrent session handling and scalability
 
-# Deploy agents (for testing)
-poetry run python deployment/deploy.py --action deploy
-```
+#### Mock Framework
+- **MockGeminiModel**: Configurable AI model responses
+- **MockBigQueryClient**: Database query simulation
+- **TestDataBuilder**: Consistent test data generation
+- **TestAssertions**: Custom validation helpers
+
+#### Test Utilities
+- **Temporary Databases**: Isolated test environments
+- **Session Fixtures**: Pre-configured test sessions
+- **Error Scenarios**: Failure case testing
+- **Performance Metrics**: Load and stress testing
+
+#### Coverage Requirements
+- Minimum 80% code coverage enforced
+- Critical paths (agent routing, session management) require 95%+ coverage
+- HTML coverage reports generated in `htmlcov/`
+- Missing coverage highlights areas needing tests
 
 ## 📁 Project Structure
 
@@ -293,11 +381,16 @@ chatbot-project/
 │   │   └── models/             # Pydantic models
 │   ├── requirements.txt
 │   └── main.py
-├── tests/                       # Unit and integration tests
-│   ├── test_root_agent.py      # Root agent tests
-│   ├── test_sub_agents.py      # Sub-agent tests
-│   ├── test_api_integration.py # API integration tests
-│   └── test_tools.py           # Tool and utility tests
+├── tests/                       # Comprehensive test suite
+│   ├── conftest.py             # Test configuration and fixtures
+│   ├── test_database_models.py # Database persistence tests
+│   ├── test_session_manager.py # Session management tests
+│   ├── test_api_endpoints.py   # API endpoint tests
+│   ├── test_agent_routing.py   # Agent routing and context tests
+│   ├── test_integration.py     # End-to-end integration tests
+│   ├── test_utils.py           # Test utilities and helpers
+│   ├── __init__.py             # Test package
+│   └── run_tests.py            # Custom test runner script
 ├── eval/                        # Agent capability evaluations
 │   ├── test_agent_capabilities.py # Performance evaluations
 │   └── conftest.py             # Evaluation fixtures

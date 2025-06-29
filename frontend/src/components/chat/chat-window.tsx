@@ -35,10 +35,10 @@ const ChatWindow: React.FC = () => {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center space-y-4">
                     <div className="text-4xl">🤖</div>
-                    <h3 className="text-lg font-semibold">Welcome to ADK Data Science Assistant</h3>
+                    <h3 className="text-lg font-semibold">Welcome to TMS AI Assistant</h3>
                     <p className="text-muted-foreground max-w-md">
-                      I'm here to help you with data analysis, visualization, and insights.
-                      Upload your data files or ask me questions to get started!
+                      Hi there! I'm here to help you answer TMS questions in natural language, along with insights and visualizations.
+For visualizations, just say something like: “Show top 5 activity codes using chart” and I’ll include a chart!
                     </p>
                   </div>
                 </div>

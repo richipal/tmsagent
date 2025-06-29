@@ -228,12 +228,29 @@ async def initial_bq_nl2sql(question: str, callback_context: Any = None) -> Dict
             db_settings['dataset_id']
         )
         
-        # Format the prompt with actual data
+        # Build context information for the prompt if available
+        context_info = ""
+        if callback_context:
+            last_query = callback_context.get_state("last_query")
+            last_response = callback_context.get_state("last_response")
+            query_result = callback_context.get_state("query_result")
+            
+            if last_query and last_response:
+                context_info = f"\n\nCONVERSATION CONTEXT:\nPrevious Question: {last_query}\nPrevious Answer: {last_response}\n"
+                
+                if query_result and query_result.get("data"):
+                    # Include a sample of the actual data for better context understanding
+                    sample_data = query_result.get("data", [])[:2]  # First 2 rows
+                    context_info += f"Previous Query Data Sample: {sample_data}\n"
+        
+        # Format the prompt with actual data and context
+        enhanced_question = question + context_info
         prompt = prompt_template.format(
             schema=db_settings['bq_ddl_schema'],
             documentation=relevant_table_docs,
-            question=question
+            question=enhanced_question
         )
+        
         
         # Generate SQL using the model
         import asyncio

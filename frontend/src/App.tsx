@@ -38,8 +38,8 @@ function App() {
                   <span className="text-primary-foreground font-bold text-sm">AI</span>
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold">ADK Data Science Assistant</h1>
-                  <p className="text-sm text-muted-foreground">Powered by Google ADK</p>
+                  <h1 className="text-lg font-semibold">Time Management AI Assistant</h1>
+                  <p className="text-sm text-muted-foreground"></p>
                 </div>
               </div>
             </div>

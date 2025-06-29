@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.upload import router as upload_router
-from app.api.websocket import router as websocket_router
+# WebSocket support removed - using HTTP REST API
 from app.api.charts import router as charts_router
 from app.api.table_info import router as table_info_router
 from app.api.suggested_questions import router as suggested_questions_router
+from app.api.database import router as database_router
 
 app = FastAPI(
     title="ADK Data Science Chatbot API",
@@ -23,10 +24,11 @@ app.add_middleware(
 
 app.include_router(chat_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
-app.include_router(websocket_router)
+# WebSocket router removed
 app.include_router(charts_router, prefix="/api")
 app.include_router(table_info_router, prefix="/api")
 app.include_router(suggested_questions_router, prefix="/api")
+app.include_router(database_router, prefix="/api")
 
 @app.get("/")
 async def root():
@@ -35,6 +37,13 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database and other resources on startup"""
+    from app.database.models import db_manager
+    # Database will be initialized automatically
+    print("✅ Database initialized at: data/conversations.db")
 
 def serve():
     """Entry point for poetry script"""

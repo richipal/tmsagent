@@ -2,6 +2,28 @@
 
 This document provides a comprehensive overview of the architecture for the ADK Data Science Multi-Agent Chatbot system, detailing the multi-agent design, data flow, and technical implementation.
 
+## 🚨 CURRENT STATUS
+
+**⚠️ This document describes the target architecture. The system currently runs on a simplified backend.**
+
+### Current Working State:
+- **Frontend**: Fully functional React application
+- **Backend**: Simplified `simple_main.py` with basic responses
+- **Communication**: HTTP REST API (working)
+- **Dependencies**: Reduced to avoid numpy/scipy issues
+
+### Blocked Features:
+- Full multi-agent system (dependency issues)
+- BigQuery integration (requires full backend)
+- Chart generation (requires numpy/matplotlib)
+- AI-powered responses (requires Google AI API fixes)
+
+**See [README_CURRENT.md](README_CURRENT.md) for current working instructions.**
+
+---
+
+**The architecture below describes the target system when dependencies are resolved.**
+
 ## Table of Contents
 
 - [System Overview](#system-overview)

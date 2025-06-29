@@ -325,7 +325,7 @@ SQL_EXAMPLES = [
                   JOIN activity a ON te.activity_id = a.id
                   JOIN location l ON e.location_id = l.id
                   WHERE a.type IN ('OVERTIME', 'DOUBLE-TIME')
-                  AND te.begin_date_time >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+                  AND DATE(te.begin_date_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
                   AND te.status_id = 4
                   ORDER BY e.last_name, e.first_name""",
         "explanation": "Finds employees who worked overtime activities in the last month with posted status"
@@ -358,23 +358,20 @@ SQL_EXAMPLES = [
     {
         "question": "How many hours did Rosalinda Rodriguez work in total throughout years?",
         "sql": """
-        SELECT
+        SELECT 
   SUM(
-    CASE
-      WHEN DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) = 0
+    CASE 
+      WHEN DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) = 0 
         THEN CAST(te.unit AS FLOAT64)
-      ELSE
-        ROUND(DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) / 60.0, 2)
+      ELSE ROUND(DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) / 60.0, 2) 
     END
-  ) AS total_hours
-FROM `adk-rag-462901.data_science_agents.time_entry` AS te
-JOIN  `adk-rag-462901.data_science_agents.employee` AS e
-ON te.employee_id = e.id
-WHERE
-  LOWER(e.first_name) LIKE '%rosalinda%'
-  AND LOWER(e.last_name) LIKE '%rodriguez%'
-  AND te.status_id = 4;  
-
+  ) AS total_hours_worked
+FROM `adk-rag-462901.data_science_agents.employee` AS e
+JOIN `adk-rag-462901.data_science_agents.time_entry` AS te 
+  ON e.id = te.employee_id
+WHERE LOWER(e.first_name) = 'rosalinda' 
+  AND LOWER(e.last_name) = 'rodriguez'
+  AND te.status_id = 4
         """,
         "explanation": "Gets the total number of hours for an employee over all years using BigQuery DATETIME_DIFF function"
     },
@@ -460,6 +457,12 @@ Relevant Table Documentation:
 
 Question: {{question}}
 
+CONTEXT AWARENESS INSTRUCTIONS:
+- If the question contains pronouns (here, there, they, them, this, that) or vague references, use the conversation context to understand what they refer to
+- If previous questions were about specific locations, employees, or data, and the current question references "here", "there", "them", etc., incorporate that context into your SQL
+- For follow-up questions, consider what information was previously retrieved and how it relates to the current question
+- Use the previous query results and conversation context to resolve ambiguous references
+
 Guidelines:
 1. Use fully qualified table names: `{project_id}.{dataset_id}.table_name`
 2. Limit results to maximum 80 rows using LIMIT clause
@@ -468,7 +471,11 @@ Guidelines:
 5. Apply business rules when relevant (e.g., status codes, activity types, workflow states)
 6. Use BigQuery-specific functions like DATETIME_DIFF instead of MySQL TIMESTAMPDIFF
 7. Use LOWER() instead of LCASE() for case-insensitive comparisons
-8. Return only the SQL query, no explanations
+8. **CRITICAL - Timestamp Handling**: When comparing timestamp columns with dates, use DATE() function:
+   - CORRECT: WHERE DATE(te.begin_date_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+   - INCORRECT: WHERE te.begin_date_time >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+   - For timestamp columns: begin_date_time, end_date_time, created_date, updated_date
+9. Return only the SQL query, no explanations
 
 Examples based on available tables and business rules:
 - "count total users" → SELECT COUNT(*) as total_users FROM `{project_id}.{dataset_id}.user`
@@ -492,7 +499,7 @@ Advanced Training Examples:
 - "Show me the top 5 employees by hours worked" → SELECT e.first_name, e.last_name, SUM(CASE WHEN DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE) = 0 THEN te.unit ELSE ROUND(DATETIME_DIFF(te.end_date_time, te.begin_date_time, MINUTE)/60, 2) END) AS total_hours FROM `{project_id}.{dataset_id}.employee` e JOIN `{project_id}.{dataset_id}.time_entry` te ON te.employee_id = e.id WHERE te.status_id = 4 GROUP BY e.id, e.first_name, e.last_name ORDER BY total_hours DESC LIMIT 5
 - "Which locations have the most time entries?" → SELECT l.name, l.code, COUNT(te.id) as time_entry_count FROM `{project_id}.{dataset_id}.location` l JOIN `{project_id}.{dataset_id}.time_entry` te ON l.id = te.location_id GROUP BY l.id, l.name, l.code ORDER BY time_entry_count DESC
 - "What are the most used activity codes?" → SELECT a.code, a.description, COUNT(te.id) as usage_count FROM `{project_id}.{dataset_id}.activity` a JOIN `{project_id}.{dataset_id}.time_entry` te ON a.id = te.activity_id WHERE a.active = 'true' GROUP BY a.id, a.code, a.description ORDER BY usage_count DESC
-- "Show me employees who worked overtime last month" → SELECT DISTINCT e.first_name, e.last_name, l.name as location FROM `{project_id}.{dataset_id}.employee` e JOIN `{project_id}.{dataset_id}.time_entry` te ON e.id = te.employee_id JOIN `{project_id}.{dataset_id}.activity` a ON te.activity_id = a.id JOIN `{project_id}.{dataset_id}.location` l ON e.location_id = l.id WHERE a.type IN ('OVERTIME', 'DOUBLE-TIME') AND te.begin_date_time >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH) AND te.status_id = 4 ORDER BY e.last_name, e.first_name
+- "Show me employees who worked overtime last month" → SELECT DISTINCT e.first_name, e.last_name, l.name as location FROM `{project_id}.{dataset_id}.employee` e JOIN `{project_id}.{dataset_id}.time_entry` te ON e.id = te.employee_id JOIN `{project_id}.{dataset_id}.activity` a ON te.activity_id = a.id JOIN `{project_id}.{dataset_id}.location` l ON e.location_id = l.id WHERE a.type IN ('OVERTIME', 'DOUBLE-TIME') AND DATE(te.begin_date_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH) AND te.status_id = 4 ORDER BY e.last_name, e.first_name
 - "Show me pending time entries for approval for location 061" → SELECT e.first_name, e.last_name, te.begin_date_time, te.end_date_time, te.unit as hours, a.description as activity FROM `{project_id}.{dataset_id}.time_entry` te JOIN `{project_id}.{dataset_id}.employee` e ON te.employee_id = e.id JOIN `{project_id}.{dataset_id}.activity` a ON te.activity_id = a.id JOIN `{project_id}.{dataset_id}.location` l ON l.id = te.location_id WHERE te.status_id = 1 AND l.code = '061' ORDER BY te.begin_date_time DESC
 - "What is the current payroll period?" → SELECT posting_date, cut_off_date FROM `{project_id}.{dataset_id}.posting_date` WHERE active = 'true' ORDER BY posting_date DESC LIMIT 1
 

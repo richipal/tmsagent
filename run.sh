@@ -5,16 +5,15 @@ echo "🚀 Starting ADK Data Science Chatbot (Quick Mode)..."
 echo "======================================"
 
 # Kill any existing processes
-pkill -f "chat-server" 2>/dev/null
+pkill -f "uvicorn main:app" 2>/dev/null
+pkill -f "simple_main" 2>/dev/null
 pkill -f "vite" 2>/dev/null
 lsof -ti:8000 | xargs kill -9 2>/dev/null
 lsof -ti:5174 | xargs kill -9 2>/dev/null
 
 # Start backend
-echo "Starting backend on port 8000..."
-cd backend
-nohup python simple_main.py > backend.log 2>&1 &
-cd ..
+echo "Starting full multi-agent backend on port 8000..."
+nohup ./backend/start_backend.sh > backend.log 2>&1 &
 
 # Wait for backend to start
 sleep 3

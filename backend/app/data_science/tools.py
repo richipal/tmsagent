@@ -23,6 +23,10 @@ class ToolContext:
         """Get value from context state"""
         return self.state.get(key, default)
     
+    def get_state_keys(self):
+        """Get all state keys"""
+        return list(self.state.keys())
+    
     def add_to_history(self, agent: str, query: str, response: str):
         """Add interaction to history"""
         self.history.append({

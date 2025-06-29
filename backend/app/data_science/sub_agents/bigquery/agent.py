@@ -73,8 +73,22 @@ class DatabaseAgent:
             if callback_context:
                 setup_before_agent_call(callback_context)
             
+            # Check if we have conversation context that might help with query understanding
+            enhanced_query = query
+            if callback_context:
+                # Get recent conversation history
+                history = callback_context.history[-3:] if hasattr(callback_context, 'history') and callback_context.history else []
+                if history:
+                    # Add context hint for the NL2SQL if there's relevant history
+                    context_hint = "\n[Context: Recent queries include: "
+                    for h in history:
+                        if h.get('agent') == 'database' and h.get('query'):
+                            context_hint += f"{h['query'][:50]}... "
+                    context_hint += "]"
+                    enhanced_query = query + context_hint
+            
             # Step 1: Convert natural language to SQL
-            sql_result = await self.tools["nl2sql"](query, callback_context)
+            sql_result = await self.tools["nl2sql"](enhanced_query, callback_context)
             
             if "error" in sql_result:
                 return f"I don't know the answer to that question. Could not generate SQL: {sql_result['error']}"
@@ -102,6 +116,15 @@ class DatabaseAgent:
             if callback_context:
                 callback_context.update_state("query_result", validation_result)
                 print(f"Database Agent stored query_result: {validation_result.get('rows', [])[:2]}...")  # Debug
+                
+                # Store the full query and result context for AI-driven follow-up understanding
+                formatted_response = self._format_response(validation_result, query)
+                callback_context.update_state("last_query", query)
+                callback_context.update_state("last_response", formatted_response)
+                print(f"💾 DATABASE AGENT STORED CONTEXT:")
+                print(f"   Query: {query}")
+                print(f"   Response: {formatted_response[:100]}...")
+                print(f"   Context state keys: {list(callback_context.state.keys())}")
             
             # Format the response
             return self._format_response(validation_result, query)

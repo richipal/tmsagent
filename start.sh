@@ -16,8 +16,8 @@ if ! command_exists node; then
     exit 1
 fi
 
-if ! command_exists poetry; then
-    echo "❌ Poetry is not installed. Please install Poetry and try again."
+if ! command_exists python3; then
+    echo "❌ Python 3 is not installed. Please install Python 3.9+ and try again."
     exit 1
 fi
 
@@ -27,8 +27,17 @@ echo "✅ Prerequisites check passed"
 echo ""
 echo "Setting up backend..."
 
-echo "Installing Python dependencies with Poetry..."
-poetry install
+echo "Setting up Python dependencies..."
+if [ ! -d ".venv_full" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv .venv_full
+    source .venv_full/bin/activate
+    pip install --upgrade pip
+    pip install fastapi uvicorn google-generativeai numpy pandas matplotlib python-multipart aiofiles python-dotenv pyyaml google-cloud-bigquery
+else
+    echo "Virtual environment exists. Activating..."
+    source .venv_full/bin/activate
+fi
 
 # Setup ADK agent (optional)
 if [ "$1" = "--setup-adk" ]; then
@@ -63,6 +72,7 @@ if [ ! -f ".env.local" ]; then
 fi
 
 echo "✅ Frontend setup completed"
+cd ..
 
 # Start services
 echo ""
@@ -72,10 +82,8 @@ echo "🌐 Frontend will start on http://localhost:5174"
 echo ""
 
 # Start backend in background
-cd backend
-python simple_main.py &
+./backend/start_backend.sh &
 BACKEND_PID=$!
-cd ..
 
 # Wait a moment for backend to start
 sleep 3

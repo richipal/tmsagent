@@ -54,8 +54,7 @@ class DataScienceRootAgent:
         
         # Initialize the root model
         self.model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
-            system_instruction=self._get_global_instruction()
+            model_name='gemini-1.5-flash'
         )
         
         # Sub-agents are already initialized in sub_agents/__init__.py
@@ -86,12 +85,15 @@ class DataScienceRootAgent:
             # Use provided context or create new one
             if context and isinstance(context, ToolContext):
                 tool_context = context
+                print(f"📥 RECEIVED TOOL CONTEXT with state keys: {list(tool_context.state.keys())}")
             else:
                 tool_context = ToolContext()
+                print(f"📦 CREATED NEW TOOL CONTEXT")
                 # Add any provided context if it's a dictionary
                 if context and hasattr(context, 'items'):
                     for key, value in context.items():
                         tool_context.update_state(key, value)
+                    print(f"📥 Added context from dict: {list(context.keys())}")
             
             # Setup before agent call
             setup_before_agent_call(tool_context)
@@ -104,7 +106,8 @@ class DataScienceRootAgent:
             
             # Route to appropriate agent(s) based on intent
             response = await self._route_to_agents(message, intent, tool_context)
-            print(f"📤 Response generated: {response} + {len(response) if response else 0} characters")
+            print(f"📤 Response generated: {len(response) if response else 0} characters")
+            print(f"📤 Final context state: {list(tool_context.state.keys())}")
             
             return response
             
@@ -117,26 +120,75 @@ class DataScienceRootAgent:
     async def _classify_intent(self, message: str, tool_context: ToolContext) -> Dict[str, Any]:
         """Classify the user's intent and determine agent routing using AI classification"""
         
+        # Get conversation history for context
+        history = tool_context.history[-5:] if tool_context.history else []
+        history_text = ""
+        if history:
+            history_text = "\nRecent conversation history:\n"
+            for h in history:
+                history_text += f"- {h['agent']}: {h['query'][:100]}...\n"
+        
+        # Get last query result for context
+        last_result = tool_context.get_state("query_result")
+        result_context = ""
+        if last_result:
+            result_context = f"\n\nLast query result available: {str(last_result)[:200]}..."
+        
         classification_prompt = f"""
-Analyze the following user query and classify it for agent routing:
+You are a routing agent that determines which specialized agent should handle a query.
 
-Query: {message}
+Current Query: {message}
+{history_text}
+{result_context}
 
-CRITICAL: Analyze what the user is asking for:
-1. If they want ACTUAL DATA (numbers, counts, patterns, trends from the database) → use "database"
-2. If they want CODE EXAMPLES or HOW TO analyze data → use "analytics"
-3. If they want BOTH data AND visualization → use "database" first, then "analytics"
+IMPORTANT CONTEXT AWARENESS:
+- If there are previous query results in the conversation, consider if the current query references them
+- Look for pronouns (it, they, these, those) or references to "the data", "results", etc.
+- If the query seems to reference previous data, include that context in your routing decision
 
-AGENT CAPABILITIES:
-- **database**: Executes SQL queries on BigQuery and returns ACTUAL DATA RESULTS
-- **analytics**: Generates Python CODE EXAMPLES for data analysis (does NOT return actual data)
-- **ml**: Machine learning model operations
+ROUTING RULES:
 
-ROUTING DECISION:
-Ask yourself: "Does the user want to SEE actual data or do they want to LEARN how to analyze data?"
-- "Show me absence patterns" → They want to SEE data → primary_agent: "database"
-- "How do I analyze absence patterns" → They want CODE → primary_agent: "analytics"
-- "Show me a chart of absence patterns" → They want DATA + VIZ → primary_agent: "database", secondary_agents: ["analytics"]
+1. DATABASE AGENT - Use when the user wants ACTUAL DATA from the database:
+   - Questions starting with: "Which", "What", "How many", "List", "Show me", "Get", "Find"
+   - Questions about specific people, locations, departments, counts, or records
+   - Questions requiring SQL queries to retrieve data
+   - Examples:
+     * "Which location does [person] work at?" → database
+     * "How many employees work in location X?" → database
+     * "Which locations have the most time entries?" → database
+     * "What is the total hours for department X?" → database
+     * "List all users in the system" → database
+     * "Show me absence patterns" → database
+
+2. ANALYTICS AGENT - Use ONLY when the user wants:
+   - Python code examples or scripts
+   - Instructions on HOW to analyze data
+   - Statistical analysis methodology (not actual results)
+   - Examples:
+     * "How do I analyze employee turnover?" → analytics
+     * "Write a Python script to calculate correlations" → analytics
+     * "What statistical methods should I use?" → analytics
+
+3. BOTH DATABASE + ANALYTICS - Use when the user wants data AND visualization:
+   - Questions asking for charts, graphs, or visualizations of data
+   - Examples:
+     * "Show me chart of top 5 employees by hours" → database + analytics
+     * "Create a bar chart of absence patterns" → database + analytics
+     * "Show me a graph of overtime by location" → database + analytics
+     * "Visualize time entries by department" → database + analytics
+
+4. ML AGENT - Use for machine learning tasks:
+   - Model creation, training, predictions
+   - ML algorithm recommendations
+
+IMPORTANT: 
+- If the query asks for BOTH data AND a chart/graph/visualization, use "database" as primary_agent and ["analytics"] as secondary_agents
+- If the query asks for specific data only, use "database"
+- When in doubt, if the query asks for specific data or information that exists in the database, ALWAYS choose "database".
+
+The query "{message}" is asking for: [analyze the query]
+
+Based on the routing rules above, this should go to:
 
 Consider the schema context:
 {tool_context.get_state('schema', 'No schema available')}

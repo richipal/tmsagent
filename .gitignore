@@ -1,0 +1,5 @@
+.env
+*.log
+*venv/
+*.env
+backend/uploads/charts/*.png

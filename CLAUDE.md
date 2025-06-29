@@ -2,12 +2,38 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository, including critical patterns, fixes, and lessons learned during implementation.
 
+## Current System Status
+
+**⚠️ IMPORTANT: The system currently runs on a simplified backend due to dependency issues.**
+
+### Working Components:
+- ✅ Frontend (React + TypeScript) - Fully functional
+- ✅ Simple Backend (`simple_main.py`) - Working with basic responses
+- ✅ Suggested Questions API - Functional
+- ✅ HTTP REST API - Working
+- ✅ Shell scripts (start.sh, stop.sh, run.sh) - Updated to use simple backend
+
+### Issues with Full Backend:
+- ❌ numpy/scipy architecture incompatibility on Apple Silicon (M1/M2 Macs)
+- ❌ Google GenerativeAI version compatibility issues
+- ❌ Chart generation requires scipy dependencies
+- ❌ Full multi-agent system requires dependency resolution
+
+### To Restore Full Functionality:
+1. Fix numpy architecture issues (install ARM64 compatible packages)
+2. Resolve Google GenerativeAI API compatibility
+3. Switch back to `main.py` backend
+4. Test BigQuery integration
+
 ## Common Development Commands
 
 ### Backend Development
 ```bash
-# Start development server
-poetry run chat-server                           # Runs on port 8000
+# Start development server (current working version)
+cd backend && python simple_main.py             # Runs on port 8000
+
+# Start full backend (requires dependency fixes)
+poetry run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 # Run tests
 poetry run pytest                                # All tests
@@ -33,12 +59,17 @@ npm run preview                                  # Preview production build
 
 ### Full Stack Development
 ```bash
-# Using Docker Compose (recommended)
-docker-compose up --build                        # Start all services
-
-# Using shell scripts
+# Using shell scripts (uses simple backend)
 ./start.sh                                       # Start all services
 ./stop.sh                                        # Stop all services
+./run.sh                                         # Quick start with background processes
+
+# Manual startup
+cd backend && python simple_main.py &           # Start backend in background
+cd frontend && npm run dev                       # Start frontend
+
+# Using Docker Compose (may require dependency fixes)
+docker-compose up --build                        # Start all services
 ```
 
 ## High-Level Architecture
