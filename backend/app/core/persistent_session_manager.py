@@ -180,6 +180,10 @@ class PersistentSessionManager:
         # Delete from database
         return db_manager.delete_session(session_id)
     
+    def update_session_title(self, session_id: str, title: str) -> bool:
+        """Update session title"""
+        return db_manager.update_session_title(session_id, title)
+    
     def list_sessions(self) -> List[ChatSession]:
         """List all sessions"""
         db_sessions = db_manager.list_sessions()

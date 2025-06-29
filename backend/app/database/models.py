@@ -217,6 +217,24 @@ class DatabaseManager:
                 ''', (session_id,))
                 return cursor.rowcount > 0
     
+    def update_session_title(self, session_id: str, title: str) -> bool:
+        """Update session title"""
+        if self._connection:
+            # For persistent connection, handle transaction manually
+            conn = self._connection
+            cursor = conn.execute('''
+                UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?
+            ''', (title, datetime.now(), session_id))
+            conn.commit()
+            return cursor.rowcount > 0
+        else:
+            # For file-based database, use context manager
+            with self.get_connection() as conn:
+                cursor = conn.execute('''
+                    UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?
+                ''', (title, datetime.now(), session_id))
+                return cursor.rowcount > 0
+    
     # Message operations
     def add_message(self, message_id: str, session_id: str, content: str, 
                    role: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -273,12 +291,23 @@ class DatabaseManager:
     def save_session_memory(self, session_id: str, context_state: Dict[str, Any], 
                            history: List[Dict[str, Any]]):
         """Save session memory (context state and history)"""
-        with self.get_connection() as conn:
+        if self._connection:
+            # For persistent connection, handle transaction manually
+            conn = self._connection
             conn.execute('''
                 INSERT OR REPLACE INTO session_memory 
                 (session_id, context_state, history, updated_at)
                 VALUES (?, ?, ?, ?)
             ''', (session_id, json.dumps(context_state), json.dumps(history), datetime.now()))
+            conn.commit()
+        else:
+            # For file-based database, use context manager
+            with self.get_connection() as conn:
+                conn.execute('''
+                    INSERT OR REPLACE INTO session_memory 
+                    (session_id, context_state, history, updated_at)
+                    VALUES (?, ?, ?, ?)
+                ''', (session_id, json.dumps(context_state), json.dumps(history), datetime.now()))
     
     def get_session_memory(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get session memory"""

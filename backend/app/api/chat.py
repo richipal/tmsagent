@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.models.chat import SendMessageRequest, SendMessageResponse, ChatHistoryResponse, MessageRole
+from app.models.chat import SendMessageRequest, SendMessageResponse, ChatHistoryResponse, MessageRole, UpdateSessionTitleRequest
 from app.data_science.agent import root_agent as data_science_agent
 import logging
 
@@ -24,6 +24,10 @@ async def send_message(request: SendMessageRequest):
                 # Create session with the requested ID
                 session = session_manager.create_session(session_id=session_id)
         
+        # Ensure we have a valid session
+        if not session:
+            raise HTTPException(status_code=500, detail="Failed to create or retrieve session")
+        
         # Add user message
         user_message = session_manager.add_message(
             session_id=session_id,
@@ -35,7 +39,11 @@ async def send_message(request: SendMessageRequest):
         from app.data_science.tools import ToolContext
         context = ToolContext()
         context.update_state("session_id", session_id)
-        context.update_state("message_history", [msg.content for msg in session.messages[-5:]])
+        
+        # Get fresh session data including the new user message
+        fresh_session = session_manager.get_session(session_id)
+        if fresh_session:
+            context.update_state("message_history", [msg.content for msg in fresh_session.messages[-5:]])
         
         # Get memory from persistent session manager
         memory = session_manager.get_session_memory(session_id)
@@ -95,6 +103,20 @@ async def delete_session(session_id: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/chat/session/{session_id}/title")
+async def update_session_title(session_id: str, request: UpdateSessionTitleRequest):
+    """Update a session's title"""
+    try:
+        success = session_manager.update_session_title(session_id, request.title)
+        if not success:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"message": "Session title updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating session title: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/chat/sessions")

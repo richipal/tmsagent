@@ -42,8 +42,23 @@ async def health_check():
 async def startup_event():
     """Initialize database and other resources on startup"""
     from app.database.models import db_manager
-    # Database will be initialized automatically
-    print("✅ Database initialized at: data/conversations.db")
+    
+    try:
+        # Force database initialization
+        db_manager.init_database()
+        
+        # Test database connectivity
+        sessions = db_manager.list_sessions()
+        print(f"✅ Database initialized at: data/conversations.db")
+        print(f"📊 Found {len(sessions)} existing sessions")
+        
+        # Initialize session manager to ensure it connects to the database
+        from app.core.persistent_session_manager import persistent_session_manager
+        print("✅ Session manager initialized")
+        
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        raise
 
 def serve():
     """Entry point for poetry script"""

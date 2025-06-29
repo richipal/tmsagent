@@ -34,6 +34,9 @@ class ChatHistoryResponse(BaseModel):
     messages: List[Message]
     session_id: str
 
+class UpdateSessionTitleRequest(BaseModel):
+    title: str
+
 class FileUploadResponse(BaseModel):
     file_id: str
     filename: str

@@ -26,10 +26,13 @@ export interface ChatStore {
   setCurrentSession: (sessionId: string) => void;
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   updateMessage: (messageId: string, updates: Partial<Message>) => void;
-  deleteSession: (sessionId: string) => void;
+  deleteSession: (sessionId: string) => Promise<void>;
+  updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
   setIsTyping: (isTyping: boolean) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   sendMessage: (content: string) => Promise<void>;
+  loadSessionsFromBackend: () => Promise<void>;
+  loadSessionMessages: (sessionId: string) => Promise<void>;
 }
 
 export interface FileUpload {

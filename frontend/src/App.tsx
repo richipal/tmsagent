@@ -5,7 +5,7 @@ import { useChatStore } from './stores/chat-store';
 import './styles/globals.css';
 
 function App() {
-  const { theme, createSession, sessions } = useChatStore();
+  const { theme, createSession, sessions, loadSessionsFromBackend } = useChatStore();
 
   useEffect(() => {
     console.log('App mounted');
@@ -16,14 +16,26 @@ function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
+  // Load sessions from backend on app startup
   useEffect(() => {
-    console.log('Sessions length:', sessions.length);
-    // Create initial session if none exists
-    if (sessions.length === 0) {
-      console.log('Creating initial session...');
-      createSession();
-    }
-  }, [sessions.length, createSession]);
+    const initializeApp = async () => {
+      console.log('Initializing app...');
+      
+      // First, try to load sessions from backend
+      await loadSessionsFromBackend();
+      
+      // Then check if we need to create an initial session
+      const { sessions: updatedSessions } = useChatStore.getState();
+      if (updatedSessions.length === 0) {
+        console.log('No sessions found, creating initial session...');
+        createSession();
+      } else {
+        console.log(`Found ${updatedSessions.length} sessions from backend`);
+      }
+    };
+    
+    initializeApp();
+  }, []); // Run only once on mount
 
   // Add error boundary
   try {
