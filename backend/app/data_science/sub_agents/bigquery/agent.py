@@ -136,8 +136,23 @@ class DatabaseAgent:
         """Format the query response based on the original question."""
         # BigQuery returns data in "data" field, not "rows"
         rows = result.get("data") or result.get("rows", [])
+        
+        # Handle no results with entity suggestions
         if not rows:
-            return "No results found for your query."
+            base_message = "No results found for your query."
+            
+            # Check if we have entity suggestions
+            if result.get("no_results_analysis") and result.get("entity_suggestions"):
+                suggestions = result["entity_suggestions"].get("suggestions", [])
+                if suggestions:
+                    base_message += "\n\nDid you mean:"
+                    for i, suggestion in enumerate(suggestions[:3], 1):  # Show top 3 suggestions
+                        confidence_percent = int(suggestion["confidence"] * 100)
+                        base_message += f"\n{i}. {suggestion['suggestion']} ({confidence_percent}% match)"
+                    
+                    base_message += "\n\nPlease try rephrasing your question with the correct spelling or try one of the suggestions above."
+            
+            return base_message
         original_query_lower = original_query.lower()
         
         # Handle employee queries with first_name, last_name, and metric (3 columns)

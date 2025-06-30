@@ -27,6 +27,9 @@ jupyter = "^1.0.0"
 ipykernel = "^6.27.1"
 python-dotenv = "^1.0.0"
 pyyaml = "^6.0.1"
+# Vector database dependencies moved to optional to avoid PEP 517 build issues
+# Install manually with: python install_vector_deps.py
+# Or try: poetry install --no-dev && pip install chromadb sentence-transformers torch spacy
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

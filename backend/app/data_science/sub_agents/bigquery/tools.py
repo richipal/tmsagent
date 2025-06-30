@@ -207,10 +207,63 @@ except Exception as e:
 
 
 async def initial_bq_nl2sql(question: str, callback_context: Any = None) -> Dict[str, Any]:
-    """Convert natural language to BigQuery SQL using Gemini."""
+    """Convert natural language to BigQuery SQL using Gemini with entity resolution."""
     try:
         if not model:
             return {"error": "Gemini model not initialized"}
+        
+        # Step 1: Entity resolution using vector search (with fallback)
+        enhanced_question = question
+        entity_resolution_context = ""
+        
+        try:
+            from app.services.entity_resolver import entity_resolver
+            
+            logger.info(f"🔍 Starting NL2SQL with entity resolution for: '{question}'")
+            print(f"🔍 Entity Resolution: Processing query '{question}'")
+            
+            # First, let's see what entities are extracted
+            test_entities = entity_resolver.vector_service.extract_entities(question)
+            print(f"🔍 Entity Extraction Test:")
+            print(f"   Query: '{question}'")
+            print(f"   Extracted entities: {len(test_entities)}")
+            for ent in test_entities:
+                print(f"     - '{ent['text']}' (type: {ent['label']}, confidence: {ent.get('confidence', 'N/A')})")
+            
+            # Perform entity resolution on the question
+            resolution_result = entity_resolver.enhance_query(question, callback_context)
+            
+            # Use the enhanced query for SQL generation
+            enhanced_question = resolution_result.enhanced_query
+            
+            print(f"🔍 Entity Resolution Results:")
+            print(f"   Original: '{question}'")
+            print(f"   Enhanced: '{enhanced_question}'")
+            print(f"   Confidence: {resolution_result.confidence_score:.3f}")
+            print(f"   Fallback: {resolution_result.fallback_to_original}")
+            
+            # Log entity resolution results
+            if resolution_result.resolved_entities:
+                logger.info(f"Entity resolution applied: {len(resolution_result.resolved_entities)} entities resolved")
+                print(f"   ✅ {len(resolution_result.resolved_entities)} entities resolved:")
+                for entity in resolution_result.resolved_entities:
+                    logger.info(f"  '{entity.original_text}' → '{entity.resolved_text}' (confidence: {entity.confidence:.3f})")
+                    print(f"      '{entity.original_text}' → '{entity.resolved_text}' (confidence: {entity.confidence:.3f})")
+                
+                # Get entity resolution context for the prompt
+                entity_resolution_context = entity_resolver.get_resolution_context_for_prompt(resolution_result)
+            else:
+                logger.info("No entities resolved, using original query")
+                print("   ❌ No entities resolved")
+                
+        except ImportError as e:
+            logger.warning(f"Entity resolution not available (missing dependencies): {e}")
+            print(f"❌ Entity resolution not available: {e}")
+            logger.info("Falling back to standard NL2SQL without entity resolution")
+        except Exception as e:
+            logger.error(f"Entity resolution failed: {e}")
+            print(f"❌ Entity resolution error: {e}")
+            logger.info("Falling back to original query")
         
         # Get database settings
         db_settings = {
@@ -220,7 +273,7 @@ async def initial_bq_nl2sql(question: str, callback_context: Any = None) -> Dict
         }
         
         # Get relevant documentation for the question
-        relevant_table_docs = get_relevant_documentation(question)
+        relevant_table_docs = get_relevant_documentation(enhanced_question)
         
         # Get the modular prompt template
         prompt_template = get_nl2sql_prompt_template(
@@ -244,11 +297,14 @@ async def initial_bq_nl2sql(question: str, callback_context: Any = None) -> Dict
                     context_info += f"Previous Query Data Sample: {sample_data}\n"
         
         # Format the prompt with actual data and context
-        enhanced_question = question + context_info
+        final_question = enhanced_question + context_info
+        if entity_resolution_context:
+            final_question = entity_resolution_context + final_question
+        
         prompt = prompt_template.format(
             schema=db_settings['bq_ddl_schema'],
             documentation=relevant_table_docs,
-            question=enhanced_question
+            question=final_question
         )
         
         
@@ -338,6 +394,29 @@ async def run_bigquery_validation(sql_query: str, callback_context: Any = None) 
         if rows:
             print(f"   First row: {rows[0]}")
         logger.info(f"Query executed successfully. Returned {len(rows)} rows.")
+        
+        # If no results returned, suggest entity corrections
+        if not rows and callback_context:
+            try:
+                from app.services.entity_resolver import entity_resolver
+                
+                # Get the original user query from context
+                original_query = callback_context.get_state("last_query") or "unknown query"
+                
+                # Analyze the no-results case and get suggestions
+                analysis = entity_resolver.handle_no_results_case(original_query, sql_query)
+                
+                if analysis.get("suggestions"):
+                    logger.info(f"No results found. Entity resolution suggestions available: {len(analysis['suggestions'])}")
+                    
+                    # Add suggestions to the execution result for the agent to handle
+                    execution_result["entity_suggestions"] = analysis
+                    execution_result["no_results_analysis"] = True
+                    
+            except ImportError:
+                logger.debug("Entity resolution not available for no-results suggestions")
+            except Exception as e:
+                logger.error(f"Error generating entity suggestions: {e}")
         
         return execution_result
         

@@ -3,3 +3,6 @@
 *venv/
 *.env
 backend/uploads/charts/*.png
+__pycache__/
+*/__pycache__/
+*.pyc
