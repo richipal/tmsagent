@@ -114,8 +114,10 @@ class DatabaseAgent:
             
             # Store structured data for other agents (following official ADK pattern)
             if callback_context:
-                callback_context.update_state("query_result", validation_result)
-                print(f"Database Agent stored query_result: {validation_result.get('rows', [])[:2]}...")  # Debug
+                # Round numeric values in the data before storing
+                cleaned_result = self._clean_numeric_data(validation_result)
+                callback_context.update_state("query_result", cleaned_result)
+                print(f"Database Agent stored query_result: {cleaned_result.get('rows', [])[:2]}...")  # Debug
                 
                 # Store the full query and result context for AI-driven follow-up understanding
                 formatted_response = self._format_response(validation_result, query)
@@ -131,6 +133,58 @@ class DatabaseAgent:
             
         except Exception as e:
             return f"Database agent error: {str(e)}"
+    
+    def _clean_numeric_data(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """Clean and round numeric values in the query result."""
+        cleaned_result = result.copy()
+        
+        # Clean the data rows
+        rows = result.get("data") or result.get("rows", [])
+        if rows:
+            cleaned_rows = []
+            for row in rows:
+                cleaned_row = {}
+                for key, value in row.items():
+                    if isinstance(value, str):
+                        # Try to convert string numbers and round them
+                        try:
+                            if '.' in value and value.replace('.', '').replace('-', '').isdigit():
+                                # Float value as string
+                                float_val = float(value)
+                                # Round to 2 decimal places, but if it's a whole number, make it int
+                                if float_val == int(float_val):
+                                    cleaned_row[key] = str(int(float_val))
+                                else:
+                                    cleaned_row[key] = f"{float_val:.2f}"
+                            elif value.isdigit():
+                                # Integer value as string
+                                cleaned_row[key] = value
+                            else:
+                                # Non-numeric string
+                                cleaned_row[key] = value
+                        except ValueError:
+                            # Not a number, keep as is
+                            cleaned_row[key] = value
+                    elif isinstance(value, float):
+                        # Round float values
+                        if value == int(value):
+                            cleaned_row[key] = str(int(value))
+                        else:
+                            cleaned_row[key] = f"{value:.2f}"
+                    elif isinstance(value, int):
+                        cleaned_row[key] = str(value)
+                    else:
+                        cleaned_row[key] = value
+                
+                cleaned_rows.append(cleaned_row)
+            
+            # Update the result with cleaned data
+            if "data" in cleaned_result:
+                cleaned_result["data"] = cleaned_rows
+            if "rows" in cleaned_result:
+                cleaned_result["rows"] = cleaned_rows
+        
+        return cleaned_result
     
     def _format_response(self, result: Dict[str, Any], original_query: str) -> str:
         """Format the query response based on the original question."""

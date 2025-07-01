@@ -102,8 +102,30 @@ class AnalyticsAgent:
                 # Generate and execute visualization code for ANY data structure
                 print(f"Generating dynamic visualization for: {query}")
                 
-                # Generate visualization code using AI (no hardcoded patterns)
-                chart_result = await self._generate_and_execute_chart(query, db_agent_data, data_summary)
+                # Prioritize structured data from query_result over text format
+                print(f"[ANALYTICS] db_agent_data type: {type(db_agent_data)}")
+                print(f"[ANALYTICS] query_result type: {type(query_result)}, has rows: {query_result.get('rows') if query_result else None}")
+                
+                if query_result and isinstance(query_result, dict) and query_result.get("data"):
+                    # Check if query_result has data field (from stored context)
+                    actual_data = query_result.get("data", [])
+                    print(f"[ANALYTICS] Found query_result.data: {actual_data[:2]}...")
+                    chart_data = {"rows": actual_data}
+                    data_summary = f"Query returned {len(actual_data)} rows: {actual_data[:3]}..." if len(actual_data) > 3 else f"Query returned {len(actual_data)} rows: {actual_data}"
+                    chart_result = await self._generate_and_execute_chart(query, chart_data, data_summary)
+                elif isinstance(db_agent_data, dict) and db_agent_data.get("rows"):
+                    # Use structured data directly
+                    print(f"[ANALYTICS] Using structured data for chart generation: {db_agent_data.get('rows', [])[:2]}...")
+                    chart_result = await self._generate_and_execute_chart(query, db_agent_data, data_summary)
+                elif query_result and query_result.get("rows"):
+                    # Fallback to query_result if available
+                    print(f"[ANALYTICS] Using query_result.rows for chart generation: {query_result.get('rows', [])[:2]}...")
+                    data_summary = f"Query returned {len(query_result['rows'])} rows: {query_result['rows'][:3]}..." if len(query_result['rows']) > 3 else f"Query returned {len(query_result['rows'])} rows: {query_result['rows']}"
+                    chart_result = await self._generate_and_execute_chart(query, query_result, data_summary)
+                else:
+                    # Use text format as last resort
+                    print(f"[ANALYTICS] Using text format for chart generation: {str(db_agent_data)[:200]}...")
+                    chart_result = await self._generate_and_execute_chart(query, db_agent_data, data_summary)
                 return chart_result
             else:
                 # If analytics agent was called without database data for a chart request, return "I don't know"
@@ -277,6 +299,22 @@ Use pandas, numpy, and appropriate statistical methods. Print all key findings."
     async def _generate_and_execute_chart(self, query: str, db_data: Any, data_summary: str) -> str:
         """Generate and execute chart code for any visualization request following Google ADK patterns."""
         try:
+            # Prepare data structure information for the prompt
+            if isinstance(db_data, dict) and db_data.get('rows'):
+                # For structured data, provide the actual rows
+                data_rows = db_data.get('rows', [])
+                if data_rows:
+                    # Get column names from first row
+                    columns = list(data_rows[0].keys()) if data_rows else []
+                    data_structure = f"Structured data with columns: {columns}\nActual data rows: {data_rows}"
+                    print(f"[ANALYTICS] Using structured data with {len(data_rows)} rows")
+                else:
+                    data_structure = "Empty structured data"
+            else:
+                # For text data, indicate it's text format
+                data_structure = f"Text format data: {str(db_data)[:500]}"
+                print(f"[ANALYTICS] Using text format data")
+            
             # Generate Python visualization code using AI
             chart_prompt = f"""Generate Python matplotlib code to create a visualization based on this request:
 
@@ -291,7 +329,11 @@ Requirements:
 5. Include data value labels when appropriate
 6. Use plt.show() at the end
 
-Data structure: {db_data if isinstance(db_data, dict) and db_data.get('rows') else 'Text format data'}
+Data structure details:
+{data_structure}
+
+IMPORTANT: If the data is structured (dict with 'rows'), create the DataFrame directly from the rows list.
+If the data is in text format, parse it appropriately.
 
 Generate complete executable Python code."""
 
@@ -317,6 +359,26 @@ Generate complete executable Python code."""
                     chart_code = chart_code[code_start:].strip()
             
             print(f"Generated chart code: {chart_code[:200]}...")
+            
+            # If we have structured data, inject it into the chart code
+            if isinstance(db_data, dict) and db_data.get('rows'):
+                # Simply prepend the correct data to the generated code
+                rows_data = db_data.get('rows')
+                print(f"[ANALYTICS] Injecting structured data: {rows_data}")
+                
+                # Create data that will override any AI-generated data
+                data_override = f"""# Correct data from database query
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data_rows = {rows_data}
+df = pd.DataFrame(data_rows)
+print(f"[CHART] Using correct data: {{len(df)}} rows")
+
+"""
+                chart_code = data_override + chart_code
+                print(f"[ANALYTICS] Injected structured data")
+                print(f"[ANALYTICS] Final chart code length: {len(chart_code)} chars")
             
             # Execute the chart code using chart executor
             try:
