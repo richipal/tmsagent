@@ -33,10 +33,12 @@ if [ ! -d ".venv_full" ]; then
     python3 -m venv .venv_full
     source .venv_full/bin/activate
     pip install --upgrade pip
-    pip install fastapi uvicorn google-generativeai numpy pandas matplotlib python-multipart aiofiles python-dotenv pyyaml google-cloud-bigquery
+    pip install fastapi uvicorn google-generativeai numpy pandas matplotlib python-multipart aiofiles python-dotenv pyyaml google-cloud-bigquery google-auth google-auth-oauthlib authlib PyJWT
 else
     echo "Virtual environment exists. Activating..."
     source .venv_full/bin/activate
+    # Install auth dependencies if not already installed
+    pip install google-auth google-auth-oauthlib authlib PyJWT
 fi
 
 # Setup ADK agent (optional)

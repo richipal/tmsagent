@@ -328,7 +328,7 @@ const Sidebar: React.FC = () => {
                       }).format(session.updatedAt)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {session.messages.length} messages
+                      {session.messageCount ?? session.messages.length} messages
                     </p>
                   </div>
                 </div>

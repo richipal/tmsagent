@@ -10,6 +10,7 @@ export interface ChatSession {
   id: string;
   title: string;
   messages: Message[];
+  messageCount?: number; // Message count from backend
   createdAt: Date;
   updatedAt: Date;
 }

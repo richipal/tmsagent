@@ -36,12 +36,25 @@ class DatabaseManager:
             # Use persistent connection for in-memory database
             conn = self._connection
             conn.executescript('''
+                -- Users table for authentication
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    picture TEXT,
+                    verified_email BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP NOT NULL,
+                    last_login TIMESTAMP
+                );
+                
                 -- Chat sessions table
                 CREATE TABLE IF NOT EXISTS chat_sessions (
                     id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
                     title TEXT NOT NULL,
                     created_at TIMESTAMP NOT NULL,
-                    updated_at TIMESTAMP NOT NULL
+                    updated_at TIMESTAMP NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
                 );
                 
                 -- Messages table
@@ -68,19 +81,47 @@ class DatabaseManager:
                 CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages (session_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp);
                 CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON chat_sessions (updated_at);
+                CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON chat_sessions (user_id);
+                CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
             ''')
+            
+            # Add user_id column to existing chat_sessions table if it doesn't exist
+            try:
+                conn.execute('ALTER TABLE chat_sessions ADD COLUMN user_id TEXT DEFAULT "anonymous_user"')
+                conn.commit()
+                print("✅ Added user_id column to existing chat_sessions table")
+            except sqlite3.OperationalError as e:
+                # Column already exists or other error
+                if "duplicate column name" in str(e).lower():
+                    print("✅ user_id column already exists")
+                else:
+                    print(f"⚠️ Database migration issue: {e}")
+                pass
         else:
             # Use temporary connection for file-based database
             with sqlite3.connect(self.db_path) as conn:
                 # Enable foreign key constraints
                 conn.execute('PRAGMA foreign_keys=ON')
                 conn.executescript('''
+                    -- Users table for authentication
+                    CREATE TABLE IF NOT EXISTS users (
+                        id TEXT PRIMARY KEY,
+                        email TEXT UNIQUE NOT NULL,
+                        name TEXT NOT NULL,
+                        picture TEXT,
+                        verified_email BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP NOT NULL,
+                        last_login TIMESTAMP
+                    );
+                    
                     -- Chat sessions table
                     CREATE TABLE IF NOT EXISTS chat_sessions (
                         id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
                         title TEXT NOT NULL,
                         created_at TIMESTAMP NOT NULL,
-                        updated_at TIMESTAMP NOT NULL
+                        updated_at TIMESTAMP NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
                     );
                     
                     -- Messages table
@@ -107,7 +148,22 @@ class DatabaseManager:
                     CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages (session_id);
                     CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp);
                     CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON chat_sessions (updated_at);
+                    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON chat_sessions (user_id);
+                    CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
                 ''')
+                
+                # Add user_id column to existing chat_sessions table if it doesn't exist
+                try:
+                    conn.execute('ALTER TABLE chat_sessions ADD COLUMN user_id TEXT DEFAULT "anonymous_user"')
+                    conn.commit()
+                    print("✅ Added user_id column to existing chat_sessions table")
+                except sqlite3.OperationalError as e:
+                    # Column already exists or other error
+                    if "duplicate column name" in str(e).lower():
+                        print("✅ user_id column already exists")
+                    else:
+                        print(f"⚠️ Database migration issue: {e}")
+                    pass
     
     def get_connection(self):
         """Get database connection with row factory"""
@@ -124,17 +180,74 @@ class DatabaseManager:
             conn.execute('PRAGMA foreign_keys=ON')
             return conn
     
+    # User operations
+    def create_or_update_user(self, user_id: str, email: str, name: str, 
+                             picture: Optional[str] = None, verified_email: bool = False) -> Dict[str, Any]:
+        """Create or update a user"""
+        now = datetime.now()
+        
+        if self._connection:
+            conn = self._connection
+            # Try to update existing user first
+            cursor = conn.execute('''
+                UPDATE users SET name = ?, picture = ?, verified_email = ?, last_login = ?
+                WHERE id = ?
+            ''', (name, picture, verified_email, now, user_id))
+            
+            if cursor.rowcount == 0:
+                # User doesn't exist, create new one
+                conn.execute('''
+                    INSERT INTO users (id, email, name, picture, verified_email, created_at, last_login)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, email, name, picture, verified_email, now, now))
+            
+            conn.commit()
+        else:
+            with self.get_connection() as conn:
+                # Try to update existing user first
+                cursor = conn.execute('''
+                    UPDATE users SET name = ?, picture = ?, verified_email = ?, last_login = ?
+                    WHERE id = ?
+                ''', (name, picture, verified_email, now, user_id))
+                
+                if cursor.rowcount == 0:
+                    # User doesn't exist, create new one
+                    conn.execute('''
+                        INSERT INTO users (id, email, name, picture, verified_email, created_at, last_login)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (user_id, email, name, picture, verified_email, now, now))
+        
+        return {
+            'id': user_id,
+            'email': email,
+            'name': name,
+            'picture': picture,
+            'verified_email': verified_email,
+            'last_login': now
+        }
+    
+    def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user by ID"""
+        with self.get_connection() as conn:
+            row = conn.execute('''
+                SELECT * FROM users WHERE id = ?
+            ''', (user_id,)).fetchone()
+            
+            if row:
+                return dict(row)
+        return None
+    
     # Session operations
-    def create_session(self, session_id: str, title: str) -> Dict[str, Any]:
+    def create_session(self, session_id: str, user_id: str, title: str) -> Dict[str, Any]:
         """Create a new chat session"""
         now = datetime.now()
         if self._connection:
             # For persistent connection, handle transaction manually
             conn = self._connection
             conn.execute('''
-                INSERT INTO chat_sessions (id, title, created_at, updated_at)
-                VALUES (?, ?, ?, ?)
-            ''', (session_id, title, now, now))
+                INSERT INTO chat_sessions (id, user_id, title, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (session_id, user_id, title, now, now))
             
             # Initialize empty memory for the session
             conn.execute('''
@@ -146,9 +259,9 @@ class DatabaseManager:
             # For file-based database, use context manager
             with self.get_connection() as conn:
                 conn.execute('''
-                    INSERT INTO chat_sessions (id, title, created_at, updated_at)
-                    VALUES (?, ?, ?, ?)
-                ''', (session_id, title, now, now))
+                    INSERT INTO chat_sessions (id, user_id, title, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (session_id, user_id, title, now, now))
                 
                 # Initialize empty memory for the session
                 conn.execute('''
@@ -158,6 +271,7 @@ class DatabaseManager:
         
         return {
             'id': session_id,
+            'user_id': user_id,
             'title': title,
             'created_at': now,
             'updated_at': now
@@ -190,12 +304,43 @@ class DatabaseManager:
                     UPDATE chat_sessions SET updated_at = ? WHERE id = ?
                 ''', (datetime.now(), session_id))
     
-    def list_sessions(self) -> List[Dict[str, Any]]:
-        """List all sessions ordered by most recent"""
+    def list_sessions(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List sessions ordered by most recent, optionally filtered by user"""
         with self.get_connection() as conn:
-            rows = conn.execute('''
-                SELECT * FROM chat_sessions ORDER BY updated_at DESC
-            ''').fetchall()
+            # Check if messages table exists
+            table_exists = conn.execute('''
+                SELECT name FROM sqlite_master WHERE type='table' AND name='messages'
+            ''').fetchone()
+            
+            if table_exists:
+                # Use JOIN query with message count
+                if user_id:
+                    rows = conn.execute('''
+                        SELECT cs.*, COUNT(m.id) as message_count
+                        FROM chat_sessions cs
+                        LEFT JOIN messages m ON cs.id = m.session_id
+                        WHERE cs.user_id = ?
+                        GROUP BY cs.id
+                        ORDER BY cs.updated_at DESC
+                    ''', (user_id,)).fetchall()
+                else:
+                    rows = conn.execute('''
+                        SELECT cs.*, COUNT(m.id) as message_count
+                        FROM chat_sessions cs
+                        LEFT JOIN messages m ON cs.id = m.session_id
+                        GROUP BY cs.id
+                        ORDER BY cs.updated_at DESC
+                    ''').fetchall()
+            else:
+                # Fallback to simple query without message count
+                if user_id:
+                    rows = conn.execute('''
+                        SELECT *, 0 as message_count FROM chat_sessions WHERE user_id = ? ORDER BY updated_at DESC
+                    ''', (user_id,)).fetchall()
+                else:
+                    rows = conn.execute('''
+                        SELECT *, 0 as message_count FROM chat_sessions ORDER BY updated_at DESC
+                    ''').fetchall()
             
             return [dict(row) for row in rows]
     

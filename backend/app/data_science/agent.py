@@ -8,6 +8,7 @@ import json
 import asyncio
 from datetime import date
 from typing import Dict, Any, Optional
+import time
 
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -16,6 +17,9 @@ from .sub_agents import bqml_agent, ds_agent, db_agent
 from .sub_agents.bigquery.tools import get_database_settings
 from .prompts import return_instructions_root
 from .tools import call_db_agent, call_ds_agent, call_bqml_agent, load_artifacts, ToolContext
+
+# Import observability
+from app.config.observability import observability
 
 load_dotenv()
 
@@ -152,6 +156,7 @@ ROUTING RULES:
    - Questions starting with: "Which", "What", "How many", "List", "Show me", "Get", "Find"
    - Questions about specific people, locations, departments, counts, or records
    - Questions requiring SQL queries to retrieve data
+   - CRITICAL: "Show me" queries ALWAYS start with database to get actual data first
    - Examples:
      * "Which location does [person] work at?" → database
      * "How many employees work in location X?" → database
@@ -159,23 +164,30 @@ ROUTING RULES:
      * "What is the total hours for department X?" → database
      * "List all users in the system" → database
      * "Show me absence patterns" → database
+     * "Show me seasonal patterns in employee hours" → database
+     * "Show me trends in overtime usage" → database
+     * "Show me productivity patterns" → database
 
 2. ANALYTICS AGENT - Use ONLY when the user wants:
-   - Python code examples or scripts
-   - Instructions on HOW to analyze data
+   - Python code examples or scripts WITHOUT real data
+   - Instructions on HOW to analyze data (methodology only)
    - Statistical analysis methodology (not actual results)
    - Examples:
      * "How do I analyze employee turnover?" → analytics
      * "Write a Python script to calculate correlations" → analytics
      * "What statistical methods should I use?" → analytics
+     * "Explain how to detect seasonal patterns" → analytics
 
-3. BOTH DATABASE + ANALYTICS - Use when the user wants data AND visualization:
-   - Questions asking for charts, graphs, or visualizations of data
+3. BOTH DATABASE + ANALYTICS - Use when the user wants data AND visualization/analysis:
+   - Questions asking for charts, graphs, visualizations, or analysis of actual data
+   - "Show me" queries that mention: patterns, trends, analysis, charts, graphs
    - Examples:
      * "Show me chart of top 5 employees by hours" → database + analytics
      * "Create a bar chart of absence patterns" → database + analytics
      * "Show me a graph of overtime by location" → database + analytics
      * "Visualize time entries by department" → database + analytics
+     * "Show me seasonal patterns in employee hours" → database + analytics
+     * "Analyze productivity trends by location" → database + analytics
 
 4. ML AGENT - Use for machine learning tasks:
    - Model creation, training, predictions
@@ -184,7 +196,10 @@ ROUTING RULES:
 IMPORTANT: 
 - If the query asks for BOTH data AND a chart/graph/visualization, use "database" as primary_agent and ["analytics"] as secondary_agents
 - If the query asks for specific data only, use "database"
-- When in doubt, if the query asks for specific data or information that exists in the database, ALWAYS choose "database".
+- ANY query starting with "Show me" requires actual data, so use "database" as primary agent
+- For "Show me patterns/trends/analysis", use "database" as primary and ["analytics"] as secondary
+- When in doubt, if the query asks for specific data or information that exists in the database, ALWAYS choose "database"
+- NEVER use "analytics" as primary agent for "Show me" queries - they need real data first
 
 The query "{message}" is asking for: [analyze the query]
 
@@ -236,6 +251,10 @@ Return a JSON object with:
         secondary_agents = intent.get("secondary_agents", [])
         
         responses = []
+        agents_called = []
+        
+        # Get observability trace if available
+        trace = tool_context.get_state("observability_trace")
         
         # Call primary agent
         try:
@@ -243,7 +262,22 @@ Return a JSON object with:
             primary_agent_normalized = primary_agent.lower()
             
             if "database" in primary_agent_normalized or "bigquery" in primary_agent_normalized or "call_db_agent" in primary_agent_normalized or "db_agent" in primary_agent_normalized:
+                agent_start = time.time()
                 tool_response = call_db_agent(message, tool_context)
+                agent_duration = (time.time() - agent_start) * 1000
+                
+                agents_called.append("database")
+                
+                # Track agent call
+                if trace:
+                    observability.track_agent_call(
+                        trace, 
+                        "database", 
+                        message, 
+                        tool_response.get("report", ""),
+                        agent_duration
+                    )
+                
                 if tool_response["status"] == "success":
                     response = tool_response["report"]
                 else:
@@ -256,7 +290,22 @@ Return a JSON object with:
                     responses.append(f"🗄️ **Database Agent Response:**\n{response}")
                 
             elif "analytics" in primary_agent_normalized or "call_ds_agent" in primary_agent_normalized or "ds_agent" in primary_agent_normalized:
+                agent_start = time.time()
                 tool_response = call_ds_agent(message, tool_context)
+                agent_duration = (time.time() - agent_start) * 1000
+                
+                agents_called.append("analytics")
+                
+                # Track agent call
+                if trace:
+                    observability.track_agent_call(
+                        trace, 
+                        "analytics", 
+                        message, 
+                        tool_response.get("report", ""),
+                        agent_duration
+                    )
+                
                 if tool_response["status"] == "success":
                     response = tool_response["report"]
                 else:
@@ -264,7 +313,22 @@ Return a JSON object with:
                 responses.append(f"📊 **Analytics Agent Response:**\n{response}")
                 
             elif "ml" in primary_agent_normalized or "bqml" in primary_agent_normalized:
+                agent_start = time.time()
                 tool_response = call_bqml_agent(message, tool_context)
+                agent_duration = (time.time() - agent_start) * 1000
+                
+                agents_called.append("bqml")
+                
+                # Track agent call
+                if trace:
+                    observability.track_agent_call(
+                        trace, 
+                        "bqml", 
+                        message, 
+                        tool_response.get("report", ""),
+                        agent_duration
+                    )
+                
                 if tool_response["status"] == "success":
                     response = tool_response["report"]
                 else:
@@ -305,21 +369,55 @@ Return a JSON object with:
                 response = tool_response["report"] if tool_response["status"] == "success" else f"Error: {tool_response['report']}"
                 responses.append(f"🤖 **Additional ML Recommendations:**\n{response}")
         
+        # Store agents called in context for metrics
+        tool_context.update_state("agents_called", agents_called)
+        
         # If complex workflow, synthesize responses
         if len(responses) > 1:
-            # Check if any response contains Python code or chart URLs - if so, preserve it
-            chart_or_code_response = None
-            for response in responses:
-                if "```python" in response or "/api/charts/" in response or "![Bar Chart]" in response:
-                    chart_or_code_response = response
-                    break
+            # Check for actual charts (images) vs Python code
+            chart_response = None
+            database_response = None
+            code_only_response = None
             
-            if chart_or_code_response:
-                # For visualization requests, return the chart/code directly
-                print(f"Found chart/code response, returning it directly: {chart_or_code_response[:100]}...")
-                return chart_or_code_response
+            for response in responses:
+                if "/api/charts/" in response or "![Bar Chart]" in response or "![Chart]" in response:
+                    # Actual chart/visualization
+                    chart_response = response
+                elif "🗄️ **Database Agent Response:**" in response:
+                    # Database data response
+                    database_response = response
+                elif "```python" in response and "/api/charts/" not in response:
+                    # Code without actual chart
+                    code_only_response = response
+            
+            # Priority order: actual chart > database data > synthesized response > code only
+            if chart_response:
+                # Return actual chart/visualization
+                print(f"Found chart response, returning it directly: {chart_response[:100]}...")
+                return chart_response
+            elif database_response and code_only_response:
+                # For "Show me patterns/trends" queries, synthesize database data with methodology
+                synthesis_prompt = f"""
+The user asked: {message}
+
+You have both database results and analysis methodology. Provide a unified response that:
+1. Presents the ACTUAL DATA from the database
+2. Adds insights about patterns/trends based on the data
+3. Does NOT include Python code (the user wants results, not code)
+
+Database Results:
+{database_response}
+
+Analysis Methodology:
+{code_only_response}
+
+Provide a direct answer focusing on the actual data and insights, without showing Python code.
+"""
+                chat = self.model.start_chat(history=[])
+                synthesis = await asyncio.to_thread(chat.send_message, synthesis_prompt)
+                return synthesis.text
             else:
-                # Normal synthesis for non-code responses
+                # Normal synthesis for other responses
                 synthesis_prompt = f"""
 Synthesize the following agent responses into a coherent answer for the user:
 

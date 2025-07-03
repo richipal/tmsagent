@@ -214,6 +214,7 @@ export const useChatStore = create<ChatStore>()(
                 id: session.id,
                 title: session.title,
                 messages: [], // Messages will be loaded separately when needed
+                messageCount: session.message_count || 0, // Use count from backend
                 createdAt: new Date(session.created_at),
                 updatedAt: new Date(session.updated_at),
               }));

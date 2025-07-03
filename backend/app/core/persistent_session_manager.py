@@ -56,7 +56,7 @@ class PersistentSessionManager:
     def __init__(self):
         self._memory_cache = {}  # In-memory cache for performance
     
-    def create_session(self, title: str = None, session_id: str = None) -> ChatSession:
+    def create_session(self, title: str = None, session_id: str = None, user_id: str = "anonymous_user") -> ChatSession:
         """Create a new chat session"""
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -67,7 +67,7 @@ class PersistentSessionManager:
             title = f"Chat {now.strftime('%Y-%m-%d %H:%M')}"
         
         # Create in database
-        db_session = db_manager.create_session(session_id, title)
+        db_session = db_manager.create_session(session_id, user_id, title)
         
         # Create ChatSession object
         session = ChatSession(
